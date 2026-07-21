@@ -1,0 +1,145 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: #0a0a0a;
+  color: #ededed;
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+button {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333;
+  border-radius: 4px;
+}
+
+/* ── Responsywny shell nawigacji ──────────────────────────────────────────── */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* Sidebar (desktop, zawsze widoczny) */
+.app-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 220px;
+  flex-shrink: 0;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  padding: 14px 10px;
+  border-right: 1px solid #333;
+  background: #0a0a0a;
+  overflow-y: auto;
+}
+
+/* Główna treść */
+.app-main {
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  overflow-y: auto;
+}
+
+/* Pasek mobilny z hamburgerem (ukryty na desktopie) */
+.app-topbar {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  height: 52px;
+  padding: 0 14px;
+  border-bottom: 1px solid #333;
+  background: #0a0a0a;
+}
+
+.app-drawer-backdrop {
+  display: none;
+}
+
+/* Szuflada mobilna (poza ekranem domyślnie) */
+.app-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 240px;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 10px;
+  background: #0c0c12;
+  border-right: 1px solid #333;
+  transform: translateX(-100%);
+  transition: transform 0.25s ease;
+  overflow-y: auto;
+}
+.app-drawer.open {
+  transform: translateX(0);
+}
+
+.nav-link {
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 14px;
+  text-decoration: none;
+  color: #888;
+  border: 1px solid transparent;
+}
+.nav-link:hover {
+  background: #1a1a2a;
+  color: #ededed;
+}
+.nav-link.active {
+  background: #2a2a3a;
+  color: #ededed;
+  font-weight: 600;
+}
+.nav-link.primary {
+  color: #ededed;
+  background: #3a2a6a;
+  border-color: #6a4fd5;
+  font-weight: 600;
+}
+.nav-link.primary.active {
+  background: #6a4fd5;
+}
+
+@media (max-width: 768px) {
+  .app-shell {
+    flex-direction: column;
+  }
+  .app-sidebar {
+    display: none;
+  }
+  .app-topbar {
+    display: flex;
+  }
+  .app-main {
+    height: calc(100dvh - 52px);
+  }
+  .app-drawer-backdrop.open {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(0, 0, 0, 0.5);
+  }
+}
