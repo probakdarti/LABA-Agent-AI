@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { NavBar } from "./components/NavBar";
+import { AuthProvider } from "./components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "VERMI — Senior Project Manager",
@@ -15,10 +16,12 @@ export default function RootLayout({
   return (
     <html lang="pl">
       <body>
-        <div className="app-shell">
-          <NavBar />
-          <main className="app-main">{children}</main>
-        </div>
+        <AuthProvider>
+          <div className="app-shell">
+            <NavBar />
+            <main className="app-main">{children}</main>
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );

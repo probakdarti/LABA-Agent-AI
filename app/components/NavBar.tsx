@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "./AuthProvider";
 
 const LINKS = [
   { href: "/", label: "🏠 Dashboard", primary: true },
@@ -13,6 +15,7 @@ const LINKS = [
   { href: "/history", label: "📜 Historia" },
   { href: "/upload", label: "📚 Baza wiedzy" },
   { href: "/knowledge", label: "🔎 Wiedza" },
+  { href: "/email-triage", label: "📧 E-mail Triage" },
   { href: "/think", label: "🧠 Myślenie" },
   { href: "/search", label: "🌐 Szukaj" },
   { href: "/generate", label: "🎨 Grafiki" },
@@ -44,14 +47,61 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
+// Stopka z zalogowanym użytkownikiem + wylogowanie.
+function UserBox() {
+  const { user } = useAuth();
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    // AuthProvider przekieruje na /login po zmianie sesji.
+  };
+  return (
+    <div style={{ marginTop: "auto", paddingTop: 12, borderTop: "1px solid #222" }}>
+      <div
+        style={{
+          fontSize: 12,
+          color: "#888",
+          padding: "0 10px 8px",
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+        title={user?.email ?? ""}
+      >
+        👤 {user?.email}
+      </div>
+      <button
+        type="button"
+        onClick={handleLogout}
+        style={{
+          width: "100%",
+          padding: "8px 14px",
+          borderRadius: 8,
+          border: "1px solid #7a3b3b",
+          background: "transparent",
+          color: "#e08a8a",
+          fontSize: 14,
+          cursor: "pointer",
+          textAlign: "left",
+        }}
+      >
+        🚪 Wyloguj
+      </button>
+    </div>
+  );
+}
+
 export function NavBar() {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+  const { user } = useAuth();
 
   // Zamknij szufladę po zmianie strony
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
+
+  // Nawigacji nie pokazujemy na stronie logowania ani przed zalogowaniem.
+  if (pathname === "/login" || !user) return null;
 
   return (
     <>
@@ -61,6 +111,7 @@ export function NavBar() {
           🤖 VERMI
         </div>
         <NavLinks />
+        <UserBox />
       </nav>
 
       {/* Pasek mobilny z hamburgerem */}
@@ -115,6 +166,7 @@ export function NavBar() {
           </button>
         </div>
         <NavLinks onNavigate={() => setOpen(false)} />
+        <UserBox />
       </nav>
     </>
   );

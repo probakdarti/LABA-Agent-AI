@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "../components/AuthProvider";
 
 type DocGroup = { title: string; chunks: number };
 type Fragment = { content: string; chunkIndex: number | null };
 type SearchHit = { title: string; content: string; similarity: number };
 
 export default function KnowledgePage() {
+  const { user } = useAuth();
   const [docs, setDocs] = useState<DocGroup[]>([]);
   const [totalChunks, setTotalChunks] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -20,11 +22,13 @@ export default function KnowledgePage() {
   const [hits, setHits] = useState<SearchHit[] | null>(null);
 
   const loadDocs = async () => {
+    if (!user) return;
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from("documents")
         .select("title")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
       const map = new Map<string, number>();
@@ -44,7 +48,7 @@ export default function KnowledgePage() {
   useEffect(() => {
     void loadDocs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
 
   const toggleDoc = async (title: string) => {
     if (expanded === title) {
@@ -52,11 +56,12 @@ export default function KnowledgePage() {
       return;
     }
     setExpanded(title);
-    if (!fragments[title]) {
+    if (!fragments[title] && user) {
       const { data } = await supabase
         .from("documents")
         .select("content, metadata, created_at")
         .eq("title", title)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: true });
       const frags: Fragment[] = (data ?? []).map((r) => ({
         content: r.content as string,
@@ -68,14 +73,14 @@ export default function KnowledgePage() {
   };
 
   const runSearch = async () => {
-    if (!query.trim() || searching) return;
+    if (!query.trim() || searching || !user) return;
     setSearching(true);
     setHits(null);
     try {
       const res = await fetch("/api/knowledge-search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
+        body: JSON.stringify({ query, userId: user.id }),
       });
       const data = await res.json();
       setHits(data.results ?? []);

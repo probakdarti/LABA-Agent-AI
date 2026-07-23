@@ -4,11 +4,16 @@ import { retrieveKnowledge } from "../knowledge-tool";
 // Niższy próg + więcej wyników niż w narzędziu agenta — do diagnostyki trafności.
 export async function POST(req: Request) {
   try {
-    const { query }: { query?: string } = await req.json();
+    const { query, userId }: { query?: string; userId?: string } =
+      await req.json();
     if (!query || !query.trim()) {
       return Response.json({ error: "Brak pola 'query'." }, { status: 400 });
     }
-    const res = await retrieveKnowledge(query, { threshold: 0.2, count: 10 });
+    const res = await retrieveKnowledge(query, {
+      threshold: 0.2,
+      count: 10,
+      userId,
+    });
     return Response.json(res);
   } catch (e) {
     console.error("[KNOWLEDGE-SEARCH] błąd:", e);

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
+import { useAuth } from "../components/AuthProvider";
 
 type ConversationCard = {
   id: string;
@@ -18,6 +19,7 @@ type ConversationCard = {
 
 export default function HistoryPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [cards, setCards] = useState<ConversationCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -25,11 +27,14 @@ export default function HistoryPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = async () => {
+    if (!user) return;
     setLoading(true);
     try {
+      // Tylko rozmowy zalogowanego użytkownika (izolacja danych — W3).
       const { data: convs, error: convErr } = await supabase
         .from("conversations")
         .select("id, title, updated_at")
+        .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
       if (convErr) throw convErr;
 
@@ -77,7 +82,7 @@ export default function HistoryPage() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
 
   const showToast = (msg: string) => {
     setToast(msg);

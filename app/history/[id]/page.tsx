@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { formatDateTime, formatTime } from "@/lib/time";
+import { useAuth } from "../../components/AuthProvider";
 
 type Msg = {
   id: string;
@@ -16,6 +17,7 @@ type Msg = {
 export default function ConversationViewPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
+  const { user } = useAuth();
 
   const [title, setTitle] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -24,14 +26,16 @@ export default function ConversationViewPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !user) return;
     (async () => {
       setLoading(true);
       try {
+        // Tylko rozmowa należąca do zalogowanego użytkownika (W3).
         const { data: conv, error: convErr } = await supabase
           .from("conversations")
           .select("title, updated_at")
           .eq("id", id)
+          .eq("user_id", user.id)
           .maybeSingle();
         if (convErr) throw convErr;
         if (!conv) {
@@ -55,7 +59,7 @@ export default function ConversationViewPage() {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [id, user]);
 
   return (
     <div style={{ maxWidth: 820, margin: "0 auto", padding: "28px 16px 48px" }}>

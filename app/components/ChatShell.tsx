@@ -5,6 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
 import { Markdown } from "./Markdown";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "./AuthProvider";
 
 type SourceUrlPart = { type: "source-url"; sourceId: string; url: string; title?: string };
 function isSourceUrlPart(part: { type: string }): part is SourceUrlPart {
@@ -375,6 +376,7 @@ export function ChatShell({
     useChat({
       transport: new DefaultChatTransport({ api: apiEndpoint }),
     });
+  const { user } = useAuth(); // zalogowany użytkownik → izolacja danych (W3)
   const [input, setInput] = useState("");
   const [panelOpen, setPanelOpen] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -392,8 +394,6 @@ export function ChatShell({
   const conversationIdRef = useRef<string | null>(null);
   // Id wiadomości już zapisanych do bazy — zapobiega dublowaniu.
   const savedIdsRef = useRef<Set<string>>(new Set());
-  // Personalizacja: stałe ID użytkownika z localStorage (wysyłane do API).
-  const userIdRef = useRef<string | null>(null);
 
   const isBusy = status === "submitted" || status === "streaming";
 
@@ -431,14 +431,18 @@ export function ChatShell({
 
   // ── Wczytanie ostatniej rozmowy przy starcie (F5 nie kasuje historii) ───────
   useEffect(() => {
-    if (!persist) return;
+    if (!persist || !user) return;
     let cancelled = false;
     (async () => {
       try {
         // "Kontynuuj rozmowę" z /history przekazuje ?c=<id> — wtedy ładujemy TĘ rozmowę.
         const requestedId = new URLSearchParams(window.location.search).get("c");
 
-        const query = supabase.from("conversations").select("*");
+        // Tylko rozmowy zalogowanego użytkownika (izolacja danych — W3).
+        const query = supabase
+          .from("conversations")
+          .select("*")
+          .eq("user_id", user.id);
         const { data: convs, error: convErr } = requestedId
           ? await query.eq("id", requestedId).limit(1)
           : await query.order("updated_at", { ascending: false }).limit(1);
@@ -476,39 +480,30 @@ export function ChatShell({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persist]);
+  }, [persist, user]);
 
-  // ── Identyfikacja użytkownika (localStorage) + profil w Supabase ────────────
+  // ── Profil użytkownika w Supabase (klucz = auth.uid) ────────────────────────
   useEffect(() => {
-    if (!personalize) return;
+    if (!personalize || !user) return;
     (async () => {
       try {
-        let uid = localStorage.getItem("user_id");
-        if (!uid) {
-          // Pierwsza wizyta — nowy identyfikator i pusty profil.
-          uid = crypto.randomUUID();
-          localStorage.setItem("user_id", uid);
-          await supabase.from("user_profiles").insert({ id: uid });
-        } else {
-          // Powracający — upewniamy się, że profil istnieje (np. po czyszczeniu bazy).
-          const { data } = await supabase
-            .from("user_profiles")
-            .select("id")
-            .eq("id", uid)
-            .maybeSingle();
-          if (!data) await supabase.from("user_profiles").insert({ id: uid });
-        }
-        userIdRef.current = uid;
+        // Upewniamy się, że istnieje profil o id = auth.uid użytkownika.
+        const { data } = await supabase
+          .from("user_profiles")
+          .select("id")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!data) await supabase.from("user_profiles").insert({ id: user.id });
       } catch (e) {
         console.error("Supabase: nie udało się zainicjować profilu użytkownika", e);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [personalize]);
+  }, [personalize, user]);
 
   // ── Zapis nowych wiadomości po zakończeniu odpowiedzi (w tle) ────────────────
   useEffect(() => {
-    if (!persist) return;
+    if (!persist || !user) return;
     if (status !== "ready") return; // zapisujemy dopiero po ustabilizowaniu
     if (messages.length === 0) return;
 
@@ -524,7 +519,7 @@ export function ChatShell({
           if (!conversationIdRef.current) {
             const { data: created, error: createErr } = await supabase
               .from("conversations")
-              .insert({ title: text.slice(0, 50) })
+              .insert({ title: text.slice(0, 50), user_id: user.id })
               .select()
               .single();
             if (createErr) throw createErr;
@@ -552,7 +547,7 @@ export function ChatShell({
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, status, persist]);
+  }, [messages, status, persist, user]);
 
   // ── Obsługa obrazów ────────────────────────────────────────────────────────
   const readFileAsDataUrl = (file: File) =>
@@ -614,11 +609,9 @@ export function ChatShell({
   const removeAttachment = (index: number) =>
     setAttachments((prev) => prev.filter((_, i) => i !== index));
 
-  // Przy personalizacji dokładamy userId do body żądania — serwer pobierze profil.
+  // Dokładamy userId do body żądania — serwer używa go do personalizacji i RAG per user.
   const sendOptions = () =>
-    personalize && userIdRef.current
-      ? { body: { userId: userIdRef.current } }
-      : undefined;
+    user ? { body: { userId: user.id } } : undefined;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

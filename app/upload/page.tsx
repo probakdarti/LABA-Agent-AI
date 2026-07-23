@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
+import { useAuth } from "../components/AuthProvider";
 
 type DocGroup = { title: string; chunks: number; createdAt: string };
 
@@ -27,6 +28,7 @@ const EXAMPLES: { label: string; title: string; content: string }[] = [
 ];
 
 export default function UploadPage() {
+  const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,11 +40,14 @@ export default function UploadPage() {
   const [toast, setToast] = useState<string | null>(null);
 
   const loadDocs = async () => {
+    if (!user) return;
     setLoadingDocs(true);
     try {
+      // Tylko dokumenty zalogowanego użytkownika (izolacja danych — W3).
       const { data, error: err } = await supabase
         .from("documents")
         .select("title, created_at")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (err) throw err;
       const map = new Map<string, DocGroup>();
@@ -63,14 +68,15 @@ export default function UploadPage() {
   useEffect(() => {
     void loadDocs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   };
 
-  const canSubmit = !busy && title.trim().length > 0 && content.trim().length > 0;
+  const canSubmit =
+    !busy && !!user && title.trim().length > 0 && content.trim().length > 0;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -82,7 +88,7 @@ export default function UploadPage() {
       const res = await fetch("/api/upload-knowledge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content }),
+        body: JSON.stringify({ title, content, userId: user!.id }),
       });
       if (!res.body) throw new Error("Brak odpowiedzi serwera.");
 
@@ -124,12 +130,13 @@ export default function UploadPage() {
     const ok = window.confirm(
       `Usunąć dokument „${docTitle}" wraz ze wszystkimi fragmentami? Tej operacji nie można cofnąć.`,
     );
-    if (!ok) return;
+    if (!ok || !user) return;
     try {
       const { error: err } = await supabase
         .from("documents")
         .delete()
-        .eq("title", docTitle);
+        .eq("title", docTitle)
+        .eq("user_id", user.id);
       if (err) throw err;
       setDocs((prev) => prev.filter((d) => d.title !== docTitle));
       showToast("Dokument usunięty");
