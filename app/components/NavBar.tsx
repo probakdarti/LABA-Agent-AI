@@ -17,6 +17,7 @@ const LINKS = [
   { href: "/knowledge", label: "🔎 Wiedza" },
   { href: "/email-triage", label: "📧 E-mail Triage" },
   { href: "/report", label: "📊 Raporty" },
+  { href: "/competitor", label: "🏢 Konkurencja" },
   { href: "/think", label: "🧠 Myślenie" },
   { href: "/search", label: "🌐 Szukaj" },
   { href: "/generate", label: "🎨 Grafiki" },
