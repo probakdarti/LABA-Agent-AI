@@ -18,6 +18,7 @@ const LINKS = [
   { href: "/email-triage", label: "📧 E-mail Triage" },
   { href: "/report", label: "📊 Raporty" },
   { href: "/competitor", label: "🏢 Konkurencja" },
+  { href: "/meeting-summary", label: "📋 Spotkania" },
   { href: "/think", label: "🧠 Myślenie" },
   { href: "/search", label: "🌐 Szukaj" },
   { href: "/generate", label: "🎨 Grafiki" },
