@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192" width="192" height="192">
+  <!-- Znak VERMI: „V" + trzy belki („E") — wektor, ostry w każdym rozmiarze.
+       Geometria wyrównana do wspólnej wysokości wersalika (y 58–134). -->
+  <title>VERMI</title>
+  <rect width="192" height="192" rx="42" fill="#0f172a" />
+  <path
+    d="M50 71 L74 121 L98 71"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="26"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <g fill="#7cfc00">
+    <rect x="116" y="58" width="42" height="18" rx="9" />
+    <rect x="116" y="87" width="42" height="18" rx="9" />
+    <rect x="116" y="116" width="42" height="18" rx="9" />
+  </g>
+</svg>

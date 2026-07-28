@@ -40,8 +40,8 @@ const components: Components = {
   code: ({ children }) => (
     <code
       style={{
-        background: "#0a0a0a",
-        border: "1px solid #333",
+        background: "var(--surface-2)",
+        border: "1px solid var(--border)",
         borderRadius: 4,
         padding: "1px 5px",
         fontSize: 13,
@@ -54,8 +54,8 @@ const components: Components = {
   pre: ({ children }) => (
     <pre
       style={{
-        background: "#0a0a0a",
-        border: "1px solid #333",
+        background: "var(--surface-2)",
+        border: "1px solid var(--border)",
         borderRadius: 8,
         padding: 12,
         overflowX: "auto",
@@ -79,12 +79,12 @@ const components: Components = {
     </div>
   ),
   thead: ({ children }) => (
-    <thead style={{ background: "#20202a" }}>{children}</thead>
+    <thead style={{ background: "var(--surface-2)" }}>{children}</thead>
   ),
   th: ({ children }) => (
     <th
       style={{
-        border: "1px solid #333",
+        border: "1px solid var(--border)",
         padding: "6px 10px",
         textAlign: "left",
         fontWeight: 700,
@@ -94,23 +94,25 @@ const components: Components = {
     </th>
   ),
   td: ({ children }) => (
-    <td style={{ border: "1px solid #333", padding: "6px 10px" }}>
+    <td style={{ border: "1px solid var(--border)", padding: "6px 10px" }}>
       {children}
     </td>
   ),
   a: ({ children, href }) => (
-    <a href={href} target="_blank" rel="noreferrer" style={{ color: "#6ab0ff" }}>
+    <a href={href} target="_blank" rel="noreferrer" style={{ color: "var(--info)" }}>
       {children}
     </a>
   ),
-  hr: () => <hr style={{ border: "none", borderTop: "1px solid #333", margin: "10px 0" }} />,
+  hr: () => (
+    <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "10px 0" }} />
+  ),
   blockquote: ({ children }) => (
     <blockquote
       style={{
-        borderLeft: "3px solid #444",
+        borderLeft: "3px solid var(--border)",
         margin: "0 0 8px",
         paddingLeft: 10,
-        color: "#bbb",
+        color: "var(--muted)",
       }}
     >
       {children}

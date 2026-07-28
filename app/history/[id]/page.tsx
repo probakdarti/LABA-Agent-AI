@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { formatDateTime, formatTime } from "@/lib/time";
+import { useAuth } from "../../components/AuthProvider";
 
 type Msg = {
   id: string;
@@ -16,6 +17,7 @@ type Msg = {
 export default function ConversationViewPage() {
   const params = useParams<{ id: string }>();
   const id = params.id;
+  const { user } = useAuth();
 
   const [title, setTitle] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
@@ -24,14 +26,16 @@ export default function ConversationViewPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (!id) return;
+    if (!id || !user) return;
     (async () => {
       setLoading(true);
       try {
+        // Tylko rozmowa należąca do zalogowanego użytkownika (W3).
         const { data: conv, error: convErr } = await supabase
           .from("conversations")
           .select("title, updated_at")
           .eq("id", id)
+          .eq("user_id", user.id)
           .maybeSingle();
         if (convErr) throw convErr;
         if (!conv) {
@@ -55,66 +59,53 @@ export default function ConversationViewPage() {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [id, user]);
 
   return (
     <div style={{ maxWidth: 820, margin: "0 auto", padding: "28px 16px 48px" }}>
       <div style={{ display: "flex", gap: 10, marginBottom: 18, flexWrap: "wrap" }}>
-        <Link
-          href="/history"
-          style={{
-            padding: "8px 14px",
-            borderRadius: 8,
-            border: "1px solid #333",
-            background: "transparent",
-            color: "#ccc",
-            textDecoration: "none",
-            fontSize: 14,
-          }}
-        >
+        <Link href="/history" className="btn" style={{ textDecoration: "none" }}>
           ← Wróć do listy
         </Link>
         <Link
           href={`/chat?c=${id}`}
-          style={{
-            padding: "8px 14px",
-            borderRadius: 8,
-            border: "1px solid #6a4fd5",
-            background: "#3a2a6a",
-            color: "#ededed",
-            textDecoration: "none",
-            fontSize: 14,
-            fontWeight: 600,
-          }}
+          className="btn-primary"
+          style={{ padding: "8px 14px", textDecoration: "none" }}
         >
           🔄 Kontynuuj rozmowę
         </Link>
       </div>
 
       {loading ? (
-        <div style={{ color: "#9a9ac0", textAlign: "center", padding: "40px 0" }}>
+        <div className="muted" style={{ textAlign: "center", padding: "40px 0" }}>
           Wczytuję rozmowę…
         </div>
       ) : notFound ? (
         <div
+          className="muted"
           style={{
             textAlign: "center",
             padding: "48px 16px",
-            border: "1px dashed #444",
+            border: "1px dashed var(--border)",
             borderRadius: 12,
-            color: "#aaa",
           }}
         >
           Nie znaleziono tej rozmowy (mogła zostać usunięta).
         </div>
       ) : (
         <>
-          <header style={{ marginBottom: 20, borderBottom: "1px solid #333", paddingBottom: 14 }}>
+          <header
+            style={{
+              marginBottom: 20,
+              borderBottom: "1px solid var(--border)",
+              paddingBottom: 14,
+            }}
+          >
             <h1 style={{ fontSize: 22, fontWeight: 700 }}>
               {title || "Rozmowa bez tytułu"}
             </h1>
             {updatedAt && (
-              <div style={{ color: "#888", fontSize: 13, marginTop: 6 }}>
+              <div className="muted" style={{ fontSize: 13, marginTop: 6 }}>
                 {formatDateTime(updatedAt)}
               </div>
             )}
@@ -126,19 +117,19 @@ export default function ConversationViewPage() {
               return (
                 <div
                   key={m.id}
+                  className="surface"
                   style={{
                     alignSelf: isUser ? "flex-end" : "flex-start",
                     maxWidth: isUser ? "75%" : "92%",
                     padding: "10px 14px",
-                    borderRadius: 12,
-                    background: isUser ? "#25324a" : "#1a1a2a",
-                    border: isUser ? "1px solid #35507a" : "1px solid #333",
+                    // Wiadomość użytkownika jaśniejsza — tak samo jak w ChatShell.
+                    background: isUser ? "var(--surface-2)" : "var(--surface)",
                   }}
                 >
                   <div
+                    className="muted"
                     style={{
                       fontSize: 11,
-                      color: "#7a7a90",
                       marginBottom: 4,
                       display: "flex",
                       gap: 8,

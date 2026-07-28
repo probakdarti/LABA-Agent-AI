@@ -25,15 +25,21 @@ export type KnowledgeSearch = {
  */
 export async function retrieveKnowledge(
   query: string,
-  { threshold = 0.5, count = 5 }: { threshold?: number; count?: number } = {},
+  {
+    threshold = 0.5,
+    count = 5,
+    userId,
+  }: { threshold?: number; count?: number; userId?: string } = {},
 ): Promise<KnowledgeSearch> {
   try {
     const embedding = await embedText(query, "RETRIEVAL_QUERY");
 
+    // filter_user_id ogranicza wyszukiwanie do dokumentów zalogowanego użytkownika (W3).
     const { data, error } = await supabase.rpc("match_documents", {
       query_embedding: embedding,
       match_threshold: threshold,
       match_count: count,
+      filter_user_id: userId ?? null,
     });
     if (error) {
       return {
@@ -94,17 +100,20 @@ export async function retrieveKnowledge(
   }
 }
 
-// RAG jako narzędzie agenta (W3 + W4: bogatszy wynik do cytowania źródeł).
-export const searchKnowledge = tool({
-  description:
-    "Wyszukuje informacje w bazie wiedzy firmy (cenniki, FAQ, regulaminy, oferty). " +
-    "Używaj ZAWSZE gdy użytkownik pyta o: ceny, pakiety, koszty; procedury, regulaminy, " +
-    "warunki; FAQ; pytania o firmę/usługi; cokolwiek co może być w dokumentach firmowych. " +
-    "Wynik zawiera source_documents — użyj ich do zacytowania źródła (📎 Źródło: ...).",
-  inputSchema: z.object({
-    query: z
-      .string()
-      .describe("Pytanie użytkownika, np. 'ile kosztuje pakiet premium'"),
-  }),
-  execute: async ({ query }) => retrieveKnowledge(query),
-});
+// RAG jako narzędzie agenta (W3 + W4). Fabryka domyka userId → wyszukiwanie
+// tylko w dokumentach zalogowanego użytkownika (izolacja danych).
+export function makeSearchKnowledge(userId: string | undefined) {
+  return tool({
+    description:
+      "Wyszukuje informacje w bazie wiedzy firmy (cenniki, FAQ, regulaminy, oferty). " +
+      "Używaj ZAWSZE gdy użytkownik pyta o: ceny, pakiety, koszty; procedury, regulaminy, " +
+      "warunki; FAQ; pytania o firmę/usługi; cokolwiek co może być w dokumentach firmowych. " +
+      "Wynik zawiera source_documents — użyj ich do zacytowania źródła (📎 Źródło: ...).",
+    inputSchema: z.object({
+      query: z
+        .string()
+        .describe("Pytanie użytkownika, np. 'ile kosztuje pakiet premium'"),
+    }),
+    execute: async ({ query }) => retrieveKnowledge(query, { userId }),
+  });
+}

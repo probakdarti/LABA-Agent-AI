@@ -1,7 +1,7 @@
 import { respondWithModelRouting } from "../model-router";
 import { readWebPage } from "../search/read-web-page";
 import { calculator, currentDateTime, webSearch } from "../agent/tools";
-import { searchKnowledge } from "../knowledge-tool";
+import { makeSearchKnowledge } from "../knowledge-tool";
 import {
   getWeather,
   getExchangeRate,
@@ -77,7 +77,8 @@ PRIORYTET NARZĘDZI:
 - Jeśli po 3 nieudanych próbach nie masz danych — powiedz wprost czego brakuje`;
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const { messages, userId }: { messages: UIMessage[]; userId?: string } =
+    await req.json();
 
   return respondWithModelRouting({
     req,
@@ -87,7 +88,8 @@ export async function POST(req: Request) {
     speed: "fast", // agent wielokrokowy: najpierw najszybszy model (lite → 2.5 → 3.5)
     maxSteps: 6, // wiele iteracji narzędzi (obniżone z 8 dla oszczędności — L06/W0)
     tools: {
-      searchKnowledge,
+      // RAG ograniczony do dokumentów zalogowanego użytkownika (W3).
+      searchKnowledge: makeSearchKnowledge(userId),
       calculator,
       currentDateTime,
       getWeather,

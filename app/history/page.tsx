@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
+import { useAuth } from "../components/AuthProvider";
 
 type ConversationCard = {
   id: string;
@@ -18,6 +19,7 @@ type ConversationCard = {
 
 export default function HistoryPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [cards, setCards] = useState<ConversationCard[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
@@ -25,11 +27,14 @@ export default function HistoryPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = async () => {
+    if (!user) return;
     setLoading(true);
     try {
+      // Tylko rozmowy zalogowanego użytkownika (izolacja danych — W3).
       const { data: convs, error: convErr } = await supabase
         .from("conversations")
         .select("id, title, updated_at")
+        .eq("user_id", user.id)
         .order("updated_at", { ascending: false });
       if (convErr) throw convErr;
 
@@ -77,7 +82,7 @@ export default function HistoryPage() {
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
 
   const showToast = (msg: string) => {
     setToast(msg);
@@ -125,91 +130,74 @@ export default function HistoryPage() {
           display: block;
           text-decoration: none;
           color: inherit;
-          background: #1a1a2a;
-          border: 1px solid #333;
+          background: var(--surface);
+          border: 1px solid var(--border);
           border-radius: 12px;
           padding: 16px 18px;
           transition: background 0.15s, border-color 0.15s, transform 0.15s;
           position: relative;
         }
         .hist-card:hover {
-          background: #20202f;
-          border-color: #61F8F8;
+          background: var(--surface-2);
+          border-color: var(--brand);
           transform: translateY(-1px);
         }
         .hist-del {
           opacity: 0;
           transition: opacity 0.15s;
-          background: transparent;
-          border: 1px solid #7a3b3b;
-          color: #e08a8a;
+          background: var(--bg);
+          border: 1px solid var(--danger-border);
+          color: var(--danger);
           border-radius: 8px;
           padding: 5px 10px;
           font-size: 13px;
           cursor: pointer;
         }
         .hist-card:hover .hist-del { opacity: 1; }
-        .hist-del:hover { background: #2a1618; }
+        .hist-del:hover { background: var(--danger-bg); }
         @media (hover: none) { .hist-del { opacity: 1; } }
       `}</style>
 
       <header style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 26, fontWeight: 700 }}>📜 Historia rozmów</h1>
-        <p style={{ color: "#888", marginTop: 6, fontSize: 14 }}>
+        <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>
           Wszystkie Twoje rozmowy z agentem
         </p>
       </header>
 
       <input
+        className="input"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Szukaj w rozmowach..."
-        style={{
-          width: "100%",
-          padding: "10px 14px",
-          borderRadius: 10,
-          border: "1px solid #333",
-          background: "#141414",
-          color: "#ededed",
-          fontSize: 14,
-          outline: "none",
-          marginBottom: 20,
-        }}
+        style={{ marginBottom: 20 }}
       />
 
       {loading ? (
-        <div style={{ color: "#9a9ac0", textAlign: "center", padding: "40px 0" }}>
+        <div className="muted" style={{ textAlign: "center", padding: "40px 0" }}>
           Wczytuję historię…
         </div>
       ) : cards.length === 0 ? (
         <div
+          className="muted"
           style={{
             textAlign: "center",
             padding: "48px 16px",
-            border: "1px dashed #444",
+            border: "1px dashed var(--border)",
             borderRadius: 12,
-            color: "#aaa",
           }}
         >
           <p style={{ marginBottom: 16 }}>Nie masz jeszcze żadnych rozmów. Zacznij nową!</p>
           <Link
             href="/chat"
-            style={{
-              display: "inline-block",
-              padding: "10px 18px",
-              borderRadius: 10,
-              background: "#3a2a6a",
-              border: "1px solid #6a4fd5",
-              color: "#ededed",
-              textDecoration: "none",
-              fontWeight: 600,
-            }}
+            className="btn-primary"
+            style={{ display: "inline-block", textDecoration: "none" }}
           >
             Rozpocznij rozmowę
           </Link>
         </div>
       ) : filtered.length === 0 ? (
-        <div style={{ color: "#888", textAlign: "center", padding: "40px 0" }}>
+        <div className="muted" style={{ textAlign: "center", padding: "40px 0" }}>
           Brak rozmów pasujących do „{query}".
         </div>
       ) : (
@@ -238,7 +226,7 @@ export default function HistoryPage() {
                   <div
                     style={{
                       fontWeight: 700,
-                      color: "#fff",
+                      color: "var(--text)",
                       fontSize: 16,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -247,14 +235,14 @@ export default function HistoryPage() {
                   >
                     {c.title || "Rozmowa bez tytułu"}
                   </div>
-                  <div style={{ color: "#888", fontSize: 13, marginTop: 4 }}>
+                  <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
                     {timeAgo(c.updated_at)} · {c.messageCount}{" "}
                     {c.messageCount === 1 ? "wiadomość" : "wiadomości"}
                   </div>
                   {c.lastMessage && (
                     <div
                       style={{
-                        color: "#9a9aa8",
+                        color: "var(--muted)",
                         fontStyle: "italic",
                         fontSize: 13,
                         marginTop: 8,
@@ -289,14 +277,14 @@ export default function HistoryPage() {
             bottom: 24,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "#20202f",
-            border: "1px solid #61F8F8",
-            color: "#ededed",
+            background: "var(--surface-2)",
+            border: "1px solid var(--brand)",
+            color: "var(--text)",
             padding: "10px 18px",
             borderRadius: 10,
             fontSize: 14,
             zIndex: 100,
-            boxShadow: "0 6px 20px rgba(0,0,0,0.5)",
+            boxShadow: `0 6px 20px var(--shadow)`,
           }}
         >
           {toast}

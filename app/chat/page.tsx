@@ -12,7 +12,7 @@ export default function ChatPage() {
   return (
     <ChatShell
       apiEndpoint="/api/chat"
-      headerTitle="📋 VERMI — Senior Project Manager"
+      headerTitle="📋 VERMI — PM ASSISTANT"
       headerSubtitle="Ekspert od zarządzania projektami. Zapytaj mnie o harmonogramy, ryzyka, metodyki (Agile/Scrum) i pracę zespołu."
       inputPlaceholder="Napisz wiadomość..."
       examples={EXAMPLE_QUESTIONS}

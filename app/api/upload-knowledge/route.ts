@@ -8,13 +8,22 @@ import { supabase } from "@/lib/supabase";
 //   {"type":"error","error":"..."}
 // Chunki przetwarzane SEKWENCYJNIE (rate limit API embeddingów).
 export async function POST(req: Request) {
-  const { title, content }: { title?: string; content?: string } =
-    await req.json();
+  const {
+    title,
+    content,
+    userId,
+  }: { title?: string; content?: string; userId?: string } = await req.json();
 
   if (!title?.trim() || !content?.trim()) {
     return Response.json(
       { error: "Wymagane pola: title oraz content." },
       { status: 400 },
+    );
+  }
+  if (!userId) {
+    return Response.json(
+      { error: "Brak userId — zaloguj się, aby dodać dokument." },
+      { status: 401 },
     );
   }
 
@@ -39,6 +48,7 @@ export async function POST(req: Request) {
             title: title.trim(),
             content: chunks[i],
             embedding,
+            user_id: userId,
             metadata: {
               source: title.trim(),
               chunk_index: i,

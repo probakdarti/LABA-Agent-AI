@@ -53,7 +53,10 @@ function Card({
           pointerEvents: "none",
         }}
       />
-      <div style={{ position: "relative" }}>
+      {/* Kafel jest ZAWSZE ciemny (gradient + przyciemnienie), więc tekst w jego
+          wnętrzu ma na stałe jasny kolor. Bez tego dziedziczyłby var(--text),
+          który w jasnym motywie jest niemal czarny — liczby były nieczytelne. */}
+      <div style={{ position: "relative", color: "#eef2f7" }}>
         <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: 0.5, marginBottom: 12, color: "#e8e8f0" }}>
           {title}
         </div>
@@ -121,7 +124,7 @@ export function Dashboard() {
       >
         <div>
           <div style={{ fontSize: 22, fontWeight: 700 }}>🌅 Dzień dobry!</div>
-          <div style={{ fontSize: 14, color: "#9a9ac0", marginTop: 2 }}>
+          <div style={{ fontSize: 14, color: "var(--muted)", marginTop: 2 }}>
             {data ? `Dziś: ${data.datetime.date}, ${data.datetime.time}` : "Ładowanie danych..."}
           </div>
         </div>
@@ -129,15 +132,8 @@ export function Dashboard() {
           type="button"
           onClick={load}
           disabled={loading}
-          style={{
-            padding: "8px 16px",
-            borderRadius: 10,
-            border: "1px solid #333",
-            background: "#1a1a2a",
-            color: "#ededed",
-            fontSize: 14,
-            cursor: loading ? "wait" : "pointer",
-          }}
+          className="btn"
+          style={{ cursor: loading ? "wait" : "pointer" }}
         >
           {loading ? "⏳ Odświeżam..." : "🔄 Odśwież"}
         </button>
@@ -239,7 +235,7 @@ export function Dashboard() {
         </Card>
 
         {/* SZYBKIE AKCJE */}
-        <Card title="🤖 SZYBKIE AKCJE" gradient="linear-gradient(135deg, #4a1f5f, #6e0a5a)" delay={0.24}>
+        <Card title="🤖 SZYBKIE AKCJE" gradient="linear-gradient(135deg, #166534, #15803d)" delay={0.24}>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {QUICK_ACTIONS.map((a) => (
               <Link
@@ -264,7 +260,7 @@ export function Dashboard() {
       </div>
 
       {data && (
-        <div style={{ textAlign: "center", fontSize: 12, color: "#666", marginTop: 20 }}>
+        <div style={{ textAlign: "center", fontSize: 12, color: "var(--muted)", marginTop: 20 }}>
           Ostatnia aktualizacja: {data.updatedAt} · dane odświeżają się automatycznie co 15 min
         </div>
       )}

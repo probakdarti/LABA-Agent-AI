@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { timeAgo } from "@/lib/time";
+import { useAuth } from "../components/AuthProvider";
 
 type DocGroup = { title: string; chunks: number; createdAt: string };
 
@@ -27,6 +28,7 @@ const EXAMPLES: { label: string; title: string; content: string }[] = [
 ];
 
 export default function UploadPage() {
+  const { user } = useAuth();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
@@ -38,11 +40,14 @@ export default function UploadPage() {
   const [toast, setToast] = useState<string | null>(null);
 
   const loadDocs = async () => {
+    if (!user) return;
     setLoadingDocs(true);
     try {
+      // Tylko dokumenty zalogowanego użytkownika (izolacja danych — W3).
       const { data, error: err } = await supabase
         .from("documents")
         .select("title, created_at")
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (err) throw err;
       const map = new Map<string, DocGroup>();
@@ -63,14 +68,15 @@ export default function UploadPage() {
   useEffect(() => {
     void loadDocs();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [user]);
 
   const showToast = (msg: string) => {
     setToast(msg);
     setTimeout(() => setToast(null), 2500);
   };
 
-  const canSubmit = !busy && title.trim().length > 0 && content.trim().length > 0;
+  const canSubmit =
+    !busy && !!user && title.trim().length > 0 && content.trim().length > 0;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -82,7 +88,7 @@ export default function UploadPage() {
       const res = await fetch("/api/upload-knowledge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content }),
+        body: JSON.stringify({ title, content, userId: user!.id }),
       });
       if (!res.body) throw new Error("Brak odpowiedzi serwera.");
 
@@ -124,12 +130,13 @@ export default function UploadPage() {
     const ok = window.confirm(
       `Usunąć dokument „${docTitle}" wraz ze wszystkimi fragmentami? Tej operacji nie można cofnąć.`,
     );
-    if (!ok) return;
+    if (!ok || !user) return;
     try {
       const { error: err } = await supabase
         .from("documents")
         .delete()
-        .eq("title", docTitle);
+        .eq("title", docTitle)
+        .eq("user_id", user.id);
       if (err) throw err;
       setDocs((prev) => prev.filter((d) => d.title !== docTitle));
       showToast("Dokument usunięty");
@@ -147,8 +154,8 @@ export default function UploadPage() {
   return (
     <div style={{ maxWidth: 820, margin: "0 auto", padding: "28px 16px 48px" }}>
       <style>{`
-        .kb-del { opacity: 0; transition: opacity .15s; background: transparent;
-          border: 1px solid #7a3b3b; color: #e08a8a; border-radius: 8px;
+        .kb-del { opacity: 0; transition: opacity .15s; background: var(--bg);
+          border: 1px solid var(--danger-border); color: var(--danger); border-radius: 8px;
           padding: 5px 10px; font-size: 13px; cursor: pointer; }
         .kb-doc:hover .kb-del { opacity: 1; }
         @media (hover: none) { .kb-del { opacity: 1; } }
@@ -156,18 +163,21 @@ export default function UploadPage() {
 
       <header style={{ marginBottom: 20 }}>
         <h1 style={{ fontSize: 26, fontWeight: 700 }}>📚 Baza wiedzy</h1>
-        <p style={{ color: "#888", marginTop: 6, fontSize: 14 }}>
+        <p className="muted" style={{ marginTop: 6, fontSize: 14 }}>
           Wklej tekst — agent będzie z niego korzystał
         </p>
       </header>
 
       {/* Podpowiedzi — przykładowe dokumenty */}
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-        <span style={{ color: "#777", fontSize: 13, alignSelf: "center" }}>Przykłady:</span>
+        <span className="muted" style={{ fontSize: 13, alignSelf: "center" }}>
+          Przykłady:
+        </span>
         {EXAMPLES.map((ex) => (
           <button
             key={ex.label}
             type="button"
+            className="btn"
             onClick={() => {
               setTitle(ex.title);
               setContent(ex.content);
@@ -176,9 +186,6 @@ export default function UploadPage() {
             style={{
               padding: "5px 12px",
               borderRadius: 999,
-              border: "1px solid #333",
-              background: "#161620",
-              color: "#cfcfe0",
               fontSize: 13,
               cursor: busy ? "not-allowed" : "pointer",
             }}
@@ -189,39 +196,24 @@ export default function UploadPage() {
       </div>
 
       <input
+        className="input"
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         placeholder="Np. Cennik 2026, FAQ, Regulamin firmy"
         disabled={busy}
-        style={{
-          width: "100%",
-          padding: "10px 14px",
-          borderRadius: 10,
-          border: "1px solid #333",
-          background: "#141414",
-          color: "#ededed",
-          fontSize: 14,
-          outline: "none",
-          marginBottom: 12,
-        }}
+        style={{ marginBottom: 12 }}
       />
 
       <textarea
+        className="input"
         value={content}
         onChange={(e) => setContent(e.target.value)}
         placeholder="Wklej tutaj treść dokumentu..."
         disabled={busy}
         style={{
-          width: "100%",
           minHeight: 300,
           padding: "12px 14px",
-          borderRadius: 10,
-          border: "1px solid #333",
-          background: "#141414",
-          color: "#ededed",
-          fontSize: 14,
           lineHeight: 1.5,
-          outline: "none",
           resize: "vertical",
           fontFamily: "inherit",
         }}
@@ -230,32 +222,30 @@ export default function UploadPage() {
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginTop: 14, flexWrap: "wrap" }}>
         <button
           type="button"
+          className="btn-primary"
           onClick={handleSubmit}
           disabled={!canSubmit}
-          style={{
-            padding: "10px 20px",
-            borderRadius: 10,
-            border: "1px solid #6a4fd5",
-            background: canSubmit ? "#3a2a6a" : "#222",
-            color: canSubmit ? "#ededed" : "#666",
-            fontSize: 15,
-            fontWeight: 600,
-            cursor: canSubmit ? "pointer" : "not-allowed",
-          }}
+          style={{ fontSize: 15, cursor: canSubmit ? "pointer" : "not-allowed" }}
         >
           📤 Zapisz w bazie wiedzy
         </button>
 
         {busy && progress && (
-          <span style={{ color: "#9a9ac0", fontSize: 14 }}>
+          <span className="muted" style={{ fontSize: 14 }}>
             Przetwarzam fragment {progress.current} z {progress.total}…
           </span>
         )}
         {busy && !progress && (
-          <span style={{ color: "#9a9ac0", fontSize: 14 }}>Przygotowuję…</span>
+          <span className="muted" style={{ fontSize: 14 }}>
+            Przygotowuję…
+          </span>
         )}
-        {!busy && result && <span style={{ color: "#8fce8f", fontSize: 14 }}>{result}</span>}
-        {!busy && error && <span style={{ color: "#e8b4b4", fontSize: 14 }}>⚠️ {error}</span>}
+        {!busy && result && (
+          <span style={{ color: "var(--ok)", fontSize: 14 }}>{result}</span>
+        )}
+        {!busy && error && (
+          <span style={{ color: "var(--danger)", fontSize: 14 }}>⚠️ {error}</span>
+        )}
       </div>
 
       {busy && progress && (
@@ -263,7 +253,7 @@ export default function UploadPage() {
           style={{
             height: 8,
             borderRadius: 999,
-            background: "#2a2a3a",
+            background: "var(--surface-2)",
             overflow: "hidden",
             marginTop: 12,
           }}
@@ -272,7 +262,7 @@ export default function UploadPage() {
             style={{
               width: `${progressPct}%`,
               height: "100%",
-              background: "#6a4fd5",
+              background: "var(--brand)",
               transition: "width 0.2s",
             }}
           />
@@ -285,9 +275,9 @@ export default function UploadPage() {
           Zapisane dokumenty
         </h2>
         {loadingDocs ? (
-          <div style={{ color: "#9a9ac0" }}>Wczytuję…</div>
+          <div className="muted">Wczytuję…</div>
         ) : docs.length === 0 ? (
-          <div style={{ color: "#888", fontStyle: "italic" }}>
+          <div className="muted" style={{ fontStyle: "italic" }}>
             Brak dokumentów. Wklej pierwszy powyżej.
           </div>
         ) : (
@@ -295,23 +285,20 @@ export default function UploadPage() {
             {docs.map((d) => (
               <div
                 key={d.title}
-                className="kb-doc"
+                className="kb-doc surface"
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
                   alignItems: "center",
                   gap: 12,
-                  background: "#1a1a2a",
-                  border: "1px solid #333",
-                  borderRadius: 12,
                   padding: "14px 16px",
                 }}
               >
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, color: "#fff", fontSize: 15 }}>
+                  <div style={{ fontWeight: 700, color: "var(--text)", fontSize: 15 }}>
                     {d.title}
                   </div>
-                  <div style={{ color: "#888", fontSize: 13, marginTop: 4 }}>
+                  <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
                     {d.chunks} {d.chunks === 1 ? "fragment" : "fragmentów"} · dodano{" "}
                     {timeAgo(d.createdAt)}
                   </div>
@@ -336,14 +323,14 @@ export default function UploadPage() {
             bottom: 24,
             left: "50%",
             transform: "translateX(-50%)",
-            background: "#20202f",
-            border: "1px solid #61F8F8",
-            color: "#ededed",
+            background: "var(--surface-2)",
+            border: "1px solid var(--brand)",
+            color: "var(--text)",
             padding: "10px 18px",
             borderRadius: 10,
             fontSize: 14,
             zIndex: 100,
-            boxShadow: "0 6px 20px rgba(0,0,0,0.5)",
+            boxShadow: `0 6px 20px var(--shadow)`,
           }}
         >
           {toast}

@@ -9,10 +9,97 @@ body {
   height: 100%;
 }
 
+/* ── Paleta marki VERMI (zmienne motywu) ─────────────────────────────────────
+   Domyślnie motyw jasny; ciemny wg preferencji systemu (prefers-color-scheme).
+   Ręczny wybór nadpisuje przez [data-theme="light"|"dark"] na <html>. */
+:root {
+  --brand: #31c24d;          /* zieleń marki — TŁO/obramowanie (za jasna na tekst) */
+  --brand-bright: #7cfc00;   /* jaskrawa zieleń akcentu */
+  --brand-contrast: #0f172a; /* tekst na przycisku akcentu */
+  --brand-fg: #15803d;       /* zieleń marki do TEKSTU i ikon na jasnym tle */
+
+  --bg: #ffffff;
+  --surface: #f8fafc;
+  --surface-2: #eef2f7;
+  --border: #e2e8f0;
+  --text: #0f172a;
+  --muted: #64748b;
+  --nav-bg: #ffffff;
+  --danger: #dc2626;
+  --danger-border: #fecaca;
+  --danger-bg: #fef2f2;
+  --shadow: rgba(15, 23, 42, 0.08);
+
+  /* Akcenty semantyczne (sekcje ReAct, stany narzędzi, linki, diagnostyka) */
+  --info: #1d4ed8;
+  --info-bg: #eff6ff;
+  --info-border: #bfdbfe;
+  --warn: #a16207;
+  --warn-bg: #fffbeb;
+  --warn-border: #fde68a;
+  --ok: #15803d;
+  --ok-bg: #f0fdf4;
+  --ok-border: #bbf7d0;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --brand: #7cfc00;
+    --brand-bright: #7cfc00;
+    --brand-contrast: #0f172a;
+    --brand-fg: #7cfc00;
+
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-2: #334155;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --nav-bg: #0f172a;
+    --danger: #f87171;
+    --danger-border: #7a3b3b;
+    --danger-bg: #431417;
+    --shadow: rgba(0, 0, 0, 0.4);
+
+    --info: #93c5fd;
+    --info-bg: #172554;
+    --info-border: #1e40af;
+    --warn: #fcd34d;
+    --warn-bg: #422006;
+    --warn-border: #92400e;
+    --ok: #86efac;
+    --ok-bg: #052e16;
+    --ok-border: #166534;
+  }
+}
+
+/* Ręczny wybór motywu (wygrywa nad systemem dzięki wyższej specyficzności) */
+:root[data-theme="light"] {
+  --brand: #31c24d; --brand-bright: #7cfc00; --brand-contrast: #0f172a; --brand-fg: #15803d;
+  --bg: #ffffff; --surface: #f8fafc; --surface-2: #eef2f7; --border: #e2e8f0;
+  --text: #0f172a; --muted: #64748b; --nav-bg: #ffffff;
+  --danger: #dc2626; --danger-border: #fecaca; --danger-bg: #fef2f2;
+  --shadow: rgba(15, 23, 42, 0.08);
+  --info: #1d4ed8; --info-bg: #eff6ff; --info-border: #bfdbfe;
+  --warn: #a16207; --warn-bg: #fffbeb; --warn-border: #fde68a;
+  --ok: #15803d; --ok-bg: #f0fdf4; --ok-border: #bbf7d0;
+}
+:root[data-theme="dark"] {
+  --brand: #7cfc00; --brand-bright: #7cfc00; --brand-contrast: #0f172a; --brand-fg: #7cfc00;
+  --bg: #0f172a; --surface: #1e293b; --surface-2: #334155; --border: #334155;
+  --text: #e2e8f0; --muted: #94a3b8; --nav-bg: #0f172a;
+  --danger: #f87171; --danger-border: #7a3b3b; --danger-bg: #431417;
+  --shadow: rgba(0, 0, 0, 0.4);
+  --info: #93c5fd; --info-bg: #172554; --info-border: #1e40af;
+  --warn: #fcd34d; --warn-bg: #422006; --warn-border: #92400e;
+  --ok: #86efac; --ok-bg: #052e16; --ok-border: #166534;
+}
+
 body {
-  background: #0a0a0a;
-  color: #ededed;
+  background: var(--bg);
+  color: var(--text);
   font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
 button {
@@ -22,11 +109,65 @@ button {
 ::-webkit-scrollbar {
   width: 8px;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #333;
+  background: var(--surface-2);
   border-radius: 4px;
 }
+
+/* ── Klasy pomocnicze marki (używane na stronach) ───────────────────────────── */
+.surface {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.muted { color: var(--muted); }
+.btn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+.btn:hover { border-color: var(--brand); }
+.btn-primary {
+  padding: 10px 18px;
+  border-radius: 10px;
+  border: 1px solid var(--brand);
+  background: var(--brand);
+  color: var(--brand-contrast);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 14px;
+  outline: none;
+}
+.input:focus { border-color: var(--brand); }
+/* Bez tego placeholder zostaje w domyślnym szarym UA — nieczytelnym na ciemnym tle. */
+.input::placeholder { color: var(--muted); opacity: 1; }
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.icon-btn:hover { border-color: var(--brand); color: var(--brand-fg); }
 
 /* ── Responsywny shell nawigacji ──────────────────────────────────────────── */
 .app-shell {
@@ -34,23 +175,21 @@ button {
   min-height: 100vh;
 }
 
-/* Sidebar (desktop, zawsze widoczny) */
 .app-sidebar {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  width: 220px;
+  gap: 3px;
+  width: 232px;
   flex-shrink: 0;
   height: 100vh;
   position: sticky;
   top: 0;
   padding: 14px 10px;
-  border-right: 1px solid #333;
-  background: #0a0a0a;
+  border-right: 1px solid var(--border);
+  background: var(--nav-bg);
   overflow-y: auto;
 }
 
-/* Główna treść */
 .app-main {
   flex: 1;
   min-width: 0;
@@ -58,35 +197,33 @@ button {
   overflow-y: auto;
 }
 
-/* Pasek mobilny z hamburgerem (ukryty na desktopie) */
 .app-topbar {
   display: none;
   align-items: center;
   gap: 10px;
   height: 52px;
   padding: 0 14px;
-  border-bottom: 1px solid #333;
-  background: #0a0a0a;
+  border-bottom: 1px solid var(--border);
+  background: var(--nav-bg);
 }
 
 .app-drawer-backdrop {
   display: none;
 }
 
-/* Szuflada mobilna (poza ekranem domyślnie) */
 .app-drawer {
   position: fixed;
   top: 0;
   left: 0;
   bottom: 0;
-  width: 240px;
+  width: 248px;
   z-index: 60;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
   padding: 14px 10px;
-  background: #0c0c12;
-  border-right: 1px solid #333;
+  background: var(--nav-bg);
+  border-right: 1px solid var(--border);
   transform: translateX(-100%);
   transition: transform 0.25s ease;
   overflow-y: auto;
@@ -96,31 +233,34 @@ button {
 }
 
 .nav-link {
-  padding: 8px 14px;
-  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 9px;
   font-size: 14px;
   text-decoration: none;
-  color: #888;
+  color: var(--muted);
   border: 1px solid transparent;
 }
+.nav-link svg { flex-shrink: 0; }
 .nav-link:hover {
-  background: #1a1a2a;
-  color: #ededed;
+  background: var(--surface);
+  color: var(--text);
 }
 .nav-link.active {
-  background: #2a2a3a;
-  color: #ededed;
+  background: var(--surface);
+  color: var(--text);
   font-weight: 600;
 }
+.nav-link.active svg { color: var(--brand-fg); }
 .nav-link.primary {
-  color: #ededed;
-  background: #3a2a6a;
-  border-color: #6a4fd5;
+  color: var(--brand-contrast);
+  background: var(--brand);
+  border-color: var(--brand);
   font-weight: 600;
 }
-.nav-link.primary.active {
-  background: #6a4fd5;
-}
+.nav-link.primary svg { color: var(--brand-contrast); }
 
 @media (max-width: 768px) {
   .app-shell {
@@ -141,5 +281,334 @@ button {
     inset: 0;
     z-index: 55;
     background: rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* ── Lockup marki (nagłówki, ekran logowania) ───────────────────────────────
+   Do HTML-a idą oba warianty pliku, a widoczny wybiera CSS — tak samo jak
+   resztę motywu: preferencja systemu + nadpisanie przez [data-theme]. */
+.vermi-lockup {
+  display: inline-block;
+  position: relative;
+  flex-shrink: 0;
+}
+.vermi-lockup img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+/* Selektory z `img` celowo — muszą wygrywać z `.vermi-lockup img` powyżej. */
+img.vermi-theme-dark {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  img.vermi-theme-light {
+    display: none;
+  }
+  img.vermi-theme-dark {
+    display: block;
+  }
+}
+:root[data-theme="light"] img.vermi-theme-light { display: block; }
+:root[data-theme="light"] img.vermi-theme-dark { display: none; }
+:root[data-theme="dark"] img.vermi-theme-light { display: none; }
+:root[data-theme="dark"] img.vermi-theme-dark { display: block; }
+
+/* ── Maskotka VERMI — pływający asystent w prawym dolnym rogu ──────────────── */
+.vermi-mascot {
+  position: fixed;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 80;
+  width: 104px;
+  height: 116px;
+  pointer-events: none;
+}
+.vermi-mascot > * {
+  pointer-events: auto;
+}
+
+.vermi-figure {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  transition: transform 0.18s ease;
+}
+.vermi-figure:hover {
+  transform: scale(1.06);
+}
+.vermi-figure:active {
+  transform: scale(0.97);
+}
+.vermi-figure:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 4px;
+  border-radius: 14px;
+}
+/* Dwie animacje: unoszenie w pętli + krótkie „pop" przy zmianie miny.
+   Kolejność ma znaczenie — „pop" jest później, więc na czas swojego trwania
+   przejmuje transform, a potem oddaje go z powrotem unoszeniu. */
+.vermi-figure img {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: 50% 100%;
+  user-select: none;
+  filter: drop-shadow(0 6px 12px rgba(15, 23, 42, 0.22));
+  animation:
+    vermi-float 3.6s ease-in-out infinite,
+    vermi-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.vermi-glow {
+  position: absolute;
+  left: 50%;
+  bottom: 2px;
+  z-index: 0;
+  width: 92px;
+  height: 66px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(49, 194, 77, 0.32), rgba(49, 194, 77, 0) 70%);
+  animation: vermi-glow 3.6s ease-in-out infinite;
+}
+.vermi-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 5px;
+  z-index: 1;
+  width: 58px;
+  height: 10px;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0) 72%);
+  animation: vermi-shadow 3.6s ease-in-out infinite;
+}
+
+@keyframes vermi-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-7px) rotate(-1.6deg);
+  }
+}
+@keyframes vermi-pop {
+  0% {
+    transform: translateY(2px) scale(0.86);
+  }
+  60% {
+    transform: translateY(-4px) scale(1.06);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes vermi-glow {
+  0%,
+  100% {
+    opacity: 0.5;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translateX(-50%) scale(1.12);
+  }
+}
+@keyframes vermi-shadow {
+  0%,
+  100% {
+    opacity: 0.65;
+    transform: translateX(-50%) scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: translateX(-50%) scale(0.8);
+  }
+}
+
+/* Dymek z podpowiedzią */
+.vermi-bubble {
+  position: absolute;
+  right: 4px;
+  bottom: 100%;
+  margin-bottom: 12px;
+  width: max-content;
+  max-width: 264px;
+  padding: 12px 32px 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 12px 28px var(--shadow);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+  opacity: 0;
+  transform: translateY(6px) scale(0.96);
+  transform-origin: 85% 100%;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+.vermi-bubble::after {
+  content: "";
+  position: absolute;
+  right: 26px;
+  bottom: -6px;
+  width: 11px;
+  height: 11px;
+  transform: rotate(45deg);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.vermi-mascot[data-open="1"] .vermi-bubble {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+.vermi-bubble-text {
+  margin: 0;
+}
+.vermi-bubble-next {
+  margin-top: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--brand-fg);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vermi-bubble-close {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+.vermi-bubble-close:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+/* Zwijanie maskotki do krążka */
+.vermi-hide {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  z-index: 3;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+}
+.vermi-mascot:hover .vermi-hide,
+.vermi-hide:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .vermi-hide {
+    opacity: 1;
+  }
+}
+
+.vermi-dock {
+  position: fixed;
+  right: 16px;
+  bottom: max(16px, env(safe-area-inset-bottom, 0px));
+  z-index: 80;
+}
+.vermi-dock-btn {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: 0 6px 18px var(--shadow);
+  cursor: pointer;
+}
+.vermi-dock-btn:hover {
+  border-color: var(--brand);
+}
+/* Cała maskotka w krążku 48 px byłaby nieczytelna — kadrujemy do głowy
+   (obraz szerszy od kontenera, przesunięty tak, żeby kask wypełniał koło). */
+.vermi-dock-btn img {
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 92px;
+  height: auto;
+  transform: translateX(-50%);
+}
+
+/* Miejsce dla maskotki w pasku wysyłania czatu — żeby nie zasłaniała
+   przycisku „Wyślij". Na szerokim ekranie rezerwujemy pas z prawej
+   (≥ szerokość maskotki 104 + jej odstęp od krawędzi 16). */
+.chat-composer-row {
+  padding-right: 124px;
+}
+
+@media (max-width: 768px) {
+  .vermi-mascot {
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    width: 64px;
+    height: 74px;
+  }
+  .vermi-glow {
+    width: 56px;
+    height: 42px;
+  }
+  .vermi-shadow {
+    width: 36px;
+    height: 7px;
+  }
+  .vermi-bubble {
+    max-width: min(74vw, 246px);
+  }
+  /* Mobile: maskotka jest mniejsza (64), więc pas z prawej też. Rezerwacji
+     nie da się zamienić na odstęp pod spodem — pasek wysyłania siedzi
+     w kolumnie flex o stałej wysokości, więc dolny padding tylko wylewa
+     się poza ekran, zamiast podnieść wiersz. */
+  .chat-composer-row {
+    padding-right: 78px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vermi-figure,
+  .vermi-figure img,
+  .vermi-glow,
+  .vermi-shadow,
+  .vermi-bubble {
+    animation: none !important;
+    transition: none !important;
   }
 }

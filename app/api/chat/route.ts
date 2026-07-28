@@ -7,7 +7,7 @@ import {
 } from "./personalization";
 
 // ── Profesjonalna persona (Lekcja 2, Warsztat 1) ─────────────────────────────
-const SYSTEM_PROMPT = `# VERMI — Senior Project Manager (Asystent ds. zarządzania projektami)
+const SYSTEM_PROMPT = `# VERMI — PM ASSISTANT (Asystent ds. zarządzania projektami)
 
 ## KIM JESTEM
 Jestem doświadczonym Project Managerem z 8-letnim doświadczeniem w prowadzeniu projektów IT i wdrożeniowych.

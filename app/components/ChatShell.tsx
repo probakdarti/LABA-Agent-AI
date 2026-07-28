@@ -5,6 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
 import { Markdown } from "./Markdown";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "./AuthProvider";
 
 type SourceUrlPart = { type: "source-url"; sourceId: string; url: string; title?: string };
 function isSourceUrlPart(part: { type: string }): part is SourceUrlPart {
@@ -83,9 +84,9 @@ const SECTION_STYLE: Record<
   ReactSection["kind"],
   { bg: string; border: string } | null
 > = {
-  thought: { bg: "#1a1a3a", border: "#3a3a8a" },
-  observe: { bg: "#2a1a0a", border: "#8a5a2a" },
-  result: { bg: "#0a2a0a", border: "#2a7a2a" },
+  thought: { bg: "var(--info-bg)", border: "var(--info-border)" },
+  observe: { bg: "var(--warn-bg)", border: "var(--warn-border)" },
+  result: { bg: "var(--ok-bg)", border: "var(--ok-border)" },
   plain: null,
 };
 
@@ -126,12 +127,12 @@ function SourceCitation({ text }: { text: string }) {
       style={{
         marginTop: 8,
         paddingTop: 8,
-        borderTop: "1px solid #333",
+        borderTop: "1px solid var(--border)",
         display: "flex",
         alignItems: "center",
         gap: 6,
         fontSize: 12,
-        color: "#8a8aa0",
+        color: "var(--muted)",
       }}
     >
       <span>📄</span>
@@ -270,50 +271,48 @@ function ToolCallView({ part }: { part: ToolPartLike }) {
   return (
     <div
       style={{
-        border: "1px solid #333",
-        borderLeft: `3px solid ${errored ? "#7a3b3b" : running ? "#8a6f2f" : "#3a5a8a"}`,
+        border: "1px solid var(--border)",
+        borderLeft: `3px solid ${
+          errored ? "var(--danger)" : running ? "var(--warn)" : "var(--info)"
+        }`,
         borderRadius: 8,
-        background: "#12121a",
+        // --bg, nie --surface-2: karta jest wcięta w bąbelek odpowiedzi, a drobny
+        // tekst (--muted/--warn/--danger) ma na półtonie za mały kontrast.
+        background: "var(--bg)",
         padding: "8px 12px",
         fontSize: 13,
         marginBottom: 8,
       }}
     >
-      <div style={{ color: "#cfcfe0", fontWeight: 600 }}>
+      <div style={{ color: "var(--text)", fontWeight: 600 }}>
         {emoji} {name}
-        {argsText && <span style={{ color: "#888", fontWeight: 400 }}> ({argsText})</span>}
-        {running && <span style={{ color: "#c9a24a" }}> — wykonuję…</span>}
+        {argsText && (
+          <span style={{ color: "var(--muted)", fontWeight: 400 }}> ({argsText})</span>
+        )}
+        {running && <span style={{ color: "var(--warn)" }}> — wykonuję…</span>}
       </div>
 
       {errored && (
-        <div style={{ color: "#e8b4b4", marginTop: 4 }}>→ {part.errorText}</div>
+        <div style={{ color: "var(--danger)", marginTop: 4 }}>→ {part.errorText}</div>
       )}
 
       {part.state === "output-available" && out && (
-        <div style={{ marginTop: 6, color: "#aaa" }}>
+        <div style={{ marginTop: 6, color: "var(--muted)" }}>
           {out.error ? (
-            <span style={{ color: "#e8b4b4" }}>→ {out.error}</span>
+            <span style={{ color: "var(--danger)" }}>→ {out.error}</span>
           ) : out.image ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={out.image}
                 alt="wygenerowany obraz"
-                style={{ maxWidth: "100%", borderRadius: 8, border: "1px solid #333" }}
+                style={{ maxWidth: "100%", borderRadius: 8, border: "1px solid var(--border)" }}
               />
               <button
                 type="button"
+                className="btn"
                 onClick={() => downloadDataUrl(out.image!, "ai-generated.png")}
-                style={{
-                  alignSelf: "flex-start",
-                  padding: "6px 14px",
-                  borderRadius: 8,
-                  border: "1px solid #333",
-                  background: "#2a2a3a",
-                  color: "#ededed",
-                  fontSize: 13,
-                  cursor: "pointer",
-                }}
+                style={{ alignSelf: "flex-start", padding: "6px 14px", fontSize: 13 }}
               >
                 💾 Pobierz
               </button>
@@ -375,6 +374,7 @@ export function ChatShell({
     useChat({
       transport: new DefaultChatTransport({ api: apiEndpoint }),
     });
+  const { user } = useAuth(); // zalogowany użytkownik → izolacja danych (W3)
   const [input, setInput] = useState("");
   const [panelOpen, setPanelOpen] = useState(true);
   const [copied, setCopied] = useState(false);
@@ -392,8 +392,6 @@ export function ChatShell({
   const conversationIdRef = useRef<string | null>(null);
   // Id wiadomości już zapisanych do bazy — zapobiega dublowaniu.
   const savedIdsRef = useRef<Set<string>>(new Set());
-  // Personalizacja: stałe ID użytkownika z localStorage (wysyłane do API).
-  const userIdRef = useRef<string | null>(null);
 
   const isBusy = status === "submitted" || status === "streaming";
 
@@ -431,14 +429,18 @@ export function ChatShell({
 
   // ── Wczytanie ostatniej rozmowy przy starcie (F5 nie kasuje historii) ───────
   useEffect(() => {
-    if (!persist) return;
+    if (!persist || !user) return;
     let cancelled = false;
     (async () => {
       try {
         // "Kontynuuj rozmowę" z /history przekazuje ?c=<id> — wtedy ładujemy TĘ rozmowę.
         const requestedId = new URLSearchParams(window.location.search).get("c");
 
-        const query = supabase.from("conversations").select("*");
+        // Tylko rozmowy zalogowanego użytkownika (izolacja danych — W3).
+        const query = supabase
+          .from("conversations")
+          .select("*")
+          .eq("user_id", user.id);
         const { data: convs, error: convErr } = requestedId
           ? await query.eq("id", requestedId).limit(1)
           : await query.order("updated_at", { ascending: false }).limit(1);
@@ -476,39 +478,30 @@ export function ChatShell({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [persist]);
+  }, [persist, user]);
 
-  // ── Identyfikacja użytkownika (localStorage) + profil w Supabase ────────────
+  // ── Profil użytkownika w Supabase (klucz = auth.uid) ────────────────────────
   useEffect(() => {
-    if (!personalize) return;
+    if (!personalize || !user) return;
     (async () => {
       try {
-        let uid = localStorage.getItem("user_id");
-        if (!uid) {
-          // Pierwsza wizyta — nowy identyfikator i pusty profil.
-          uid = crypto.randomUUID();
-          localStorage.setItem("user_id", uid);
-          await supabase.from("user_profiles").insert({ id: uid });
-        } else {
-          // Powracający — upewniamy się, że profil istnieje (np. po czyszczeniu bazy).
-          const { data } = await supabase
-            .from("user_profiles")
-            .select("id")
-            .eq("id", uid)
-            .maybeSingle();
-          if (!data) await supabase.from("user_profiles").insert({ id: uid });
-        }
-        userIdRef.current = uid;
+        // Upewniamy się, że istnieje profil o id = auth.uid użytkownika.
+        const { data } = await supabase
+          .from("user_profiles")
+          .select("id")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (!data) await supabase.from("user_profiles").insert({ id: user.id });
       } catch (e) {
         console.error("Supabase: nie udało się zainicjować profilu użytkownika", e);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [personalize]);
+  }, [personalize, user]);
 
   // ── Zapis nowych wiadomości po zakończeniu odpowiedzi (w tle) ────────────────
   useEffect(() => {
-    if (!persist) return;
+    if (!persist || !user) return;
     if (status !== "ready") return; // zapisujemy dopiero po ustabilizowaniu
     if (messages.length === 0) return;
 
@@ -524,7 +517,7 @@ export function ChatShell({
           if (!conversationIdRef.current) {
             const { data: created, error: createErr } = await supabase
               .from("conversations")
-              .insert({ title: text.slice(0, 50) })
+              .insert({ title: text.slice(0, 50), user_id: user.id })
               .select()
               .single();
             if (createErr) throw createErr;
@@ -552,7 +545,7 @@ export function ChatShell({
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [messages, status, persist]);
+  }, [messages, status, persist, user]);
 
   // ── Obsługa obrazów ────────────────────────────────────────────────────────
   const readFileAsDataUrl = (file: File) =>
@@ -614,11 +607,9 @@ export function ChatShell({
   const removeAttachment = (index: number) =>
     setAttachments((prev) => prev.filter((_, i) => i !== index));
 
-  // Przy personalizacji dokładamy userId do body żądania — serwer pobierze profil.
+  // Dokładamy userId do body żądania — serwer używa go do personalizacji i RAG per user.
   const sendOptions = () =>
-    personalize && userIdRef.current
-      ? { body: { userId: userIdRef.current } }
-      : undefined;
+    user ? { body: { userId: user.id } } : undefined;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -706,7 +697,8 @@ export function ChatShell({
     ? (messageText(lastAssistant).match(/🧠/g) || []).length
     : 0;
   const diagStep = Math.min(5, Math.max(diagThoughts, stats.totalCalls > 0 ? 1 : 0));
-  const stepColor = diagStep >= 5 ? "#e05a5a" : diagStep >= 4 ? "#d6b23a" : "#4caf6a";
+  const stepColor =
+    diagStep >= 5 ? "var(--danger)" : diagStep >= 4 ? "var(--warn)" : "var(--ok)";
   const diagStatus = isBusy
     ? "⏳ W trakcie..."
     : diagStep >= 5
@@ -740,14 +732,14 @@ export function ChatShell({
             position: "absolute",
             inset: 0,
             zIndex: 10,
-            background: "rgba(20,16,40,0.92)",
-            border: "2px dashed #6a4fd5",
+            background: "color-mix(in srgb, var(--bg) 92%, transparent)",
+            border: "2px dashed var(--brand)",
             borderRadius: 12,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             fontSize: 20,
-            color: "#cfcfe0",
+            color: "var(--text)",
             pointerEvents: "none",
           }}
         >
@@ -755,9 +747,11 @@ export function ChatShell({
         </div>
       )}
 
-      <header style={{ padding: "20px 16px", borderBottom: "1px solid #333" }}>
+      <header style={{ padding: "20px 16px", borderBottom: "1px solid var(--border)" }}>
         <div style={{ fontSize: 22, fontWeight: 600 }}>{headerTitle}</div>
-        <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>{headerSubtitle}</div>
+        <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+          {headerSubtitle}
+        </div>
       </header>
 
       {toolPanel.length > 0 && (
@@ -767,8 +761,8 @@ export function ChatShell({
             flexWrap: "wrap",
             gap: 6,
             padding: "10px 16px",
-            borderBottom: "1px solid #333",
-            background: "#0f0f12",
+            borderBottom: "1px solid var(--border)",
+            background: "var(--surface)",
           }}
         >
           {toolPanel.map((t) => (
@@ -778,9 +772,9 @@ export function ChatShell({
                 fontSize: 12,
                 padding: "4px 10px",
                 borderRadius: 999,
-                background: "#161620",
-                border: "1px solid #2a3a2a",
-                color: "#bfe0bf",
+                background: "var(--ok-bg)",
+                border: "1px solid var(--ok-border)",
+                color: "var(--ok)",
               }}
             >
               {t.emoji} {t.label} ✅
@@ -789,7 +783,13 @@ export function ChatShell({
         </div>
       )}
 
-      <section style={{ borderBottom: "1px solid #333", background: "#0f0f12", fontSize: 13 }}>
+      <section
+        style={{
+          borderBottom: "1px solid var(--border)",
+          background: "var(--surface)",
+          fontSize: 13,
+        }}
+      >
         <button
           type="button"
           onClick={() => setPanelOpen((v) => !v)}
@@ -801,13 +801,13 @@ export function ChatShell({
             padding: "10px 16px",
             background: "transparent",
             border: "none",
-            color: "#bbb",
+            color: "var(--text)",
             fontSize: 13,
             cursor: "pointer",
           }}
         >
           <span>🧠 Kontekst rozmowy</span>
-          <span style={{ color: "#666" }}>{panelOpen ? "▲" : "▼"}</span>
+          <span className="muted">{panelOpen ? "▲" : "▼"}</span>
         </button>
 
         {panelOpen && (
@@ -820,22 +820,21 @@ export function ChatShell({
               padding: "0 16px 12px",
             }}
           >
-            <span style={{ color: "#888" }}>
-              Wiadomości: <strong style={{ color: "#ededed" }}>{messageCount}</strong> | ~Tokeny:{" "}
-              <strong style={{ color: "#ededed" }}>{approxTokens}</strong>
+            <span className="muted">
+              Wiadomości: <strong style={{ color: "var(--text)" }}>{messageCount}</strong> |
+              ~Tokeny: <strong style={{ color: "var(--text)" }}>{approxTokens}</strong>
             </span>
             <div style={{ flex: 1 }} />
             <button
               type="button"
+              className="btn"
               onClick={handleExport}
               disabled={messageCount === 0}
               style={{
                 padding: "5px 12px",
-                borderRadius: 8,
-                border: "1px solid #333",
                 background: "transparent",
-                color: messageCount === 0 ? "#555" : "#ccc",
                 fontSize: 13,
+                opacity: messageCount === 0 ? 0.5 : 1,
                 cursor: messageCount === 0 ? "not-allowed" : "pointer",
               }}
             >
@@ -843,15 +842,15 @@ export function ChatShell({
             </button>
             <button
               type="button"
+              className="btn"
               onClick={handleNewChat}
               disabled={messageCount === 0}
               style={{
                 padding: "5px 12px",
-                borderRadius: 8,
-                border: "1px solid #333",
                 background: "transparent",
-                color: messageCount === 0 ? "#555" : "#e08a8a",
+                color: "var(--danger)",
                 fontSize: 13,
+                opacity: messageCount === 0 ? 0.5 : 1,
                 cursor: messageCount === 0 ? "not-allowed" : "pointer",
               }}
             >
@@ -879,7 +878,7 @@ export function ChatShell({
               justifyContent: "center",
               gap: 10,
               marginTop: 40,
-              color: "#9a9ac0",
+              color: "var(--muted)",
               fontSize: 14,
             }}
           >
@@ -888,8 +887,8 @@ export function ChatShell({
                 width: 16,
                 height: 16,
                 borderRadius: "50%",
-                border: "2px solid #3a3a5a",
-                borderTopColor: "#6a4fd5",
+                border: "2px solid var(--border)",
+                borderTopColor: "var(--brand)",
                 display: "inline-block",
                 animation: "spin 0.8s linear infinite",
               }}
@@ -908,12 +907,12 @@ export function ChatShell({
                   margin: "0 auto 20px",
                   padding: "24px 16px",
                   borderRadius: 12,
-                  border: "1px dashed #444",
-                  background: "#12121a",
+                  border: "1px dashed var(--border)",
+                  background: "var(--surface)",
                   display: "flex",
                   flexDirection: "column",
                   gap: 8,
-                  color: "#cfcfe0",
+                  color: "var(--text)",
                   fontSize: 14,
                 }}
               >
@@ -922,7 +921,7 @@ export function ChatShell({
                 <div>🖱️ Przeciągnij — upuść obraz</div>
               </div>
             )}
-            <p style={{ color: "#888", marginBottom: 16 }}>
+            <p className="muted" style={{ marginBottom: 16 }}>
               Od czego zaczniemy? {examples.length > 0 && "Kliknij przykład albo "}
               napisz własne pytanie.
             </p>
@@ -940,15 +939,11 @@ export function ChatShell({
                   <button
                     key={q}
                     type="button"
+                    className="btn"
                     onClick={() => askExample(q)}
                     disabled={isBusy}
                     style={{
                       padding: "10px 14px",
-                      borderRadius: 10,
-                      border: "1px solid #333",
-                      background: "#161620",
-                      color: "#cfcfe0",
-                      fontSize: 14,
                       textAlign: "left",
                       cursor: isBusy ? "not-allowed" : "pointer",
                     }}
@@ -978,13 +973,13 @@ export function ChatShell({
           return (
             <div
               key={message.id}
+              className="surface"
               style={{
                 alignSelf: isUser ? "flex-end" : "flex-start",
                 maxWidth: isUser ? "75%" : "92%",
                 padding: "10px 14px",
-                borderRadius: 12,
-                background: isUser ? "#2a2a3a" : "#1a1a2a",
-                border: isUser ? "none" : "1px solid #333",
+                // Wiadomość użytkownika odcina się od odpowiedzi jaśniejszym tłem.
+                background: isUser ? "var(--surface-2)" : "var(--surface)",
               }}
             >
               {/* Obrazy dołączone przez użytkownika */}
@@ -1000,7 +995,7 @@ export function ChatShell({
                         maxWidth: "100%",
                         maxHeight: 240,
                         borderRadius: 8,
-                        border: "1px solid #333",
+                        border: "1px solid var(--border)",
                       }}
                     />
                   ))}
@@ -1018,14 +1013,14 @@ export function ChatShell({
                   {/* Pasek postępu ReAct */}
                   {reactMode && step > 0 && (
                     <div style={{ marginBottom: 10 }}>
-                      <div style={{ fontSize: 12, color: "#9a9ac0", marginBottom: 4 }}>
+                      <div className="muted" style={{ fontSize: 12, marginBottom: 4 }}>
                         Krok {step} z 5
                       </div>
                       <div
                         style={{
                           height: 6,
                           borderRadius: 999,
-                          background: "#2a2a3a",
+                          background: "var(--surface-2)",
                           overflow: "hidden",
                         }}
                       >
@@ -1033,7 +1028,7 @@ export function ChatShell({
                           style={{
                             width: `${(step / 5) * 100}%`,
                             height: "100%",
-                            background: "#6a4fd5",
+                            background: "var(--brand)",
                             transition: "width 0.3s",
                           }}
                         />
@@ -1055,7 +1050,7 @@ export function ChatShell({
                   })}
 
                   {toolCount > 0 && (
-                    <div style={{ marginTop: 6, fontSize: 12, color: "#888" }}>
+                    <div className="muted" style={{ marginTop: 6, fontSize: 12 }}>
                       🔧 Użyto {toolCount}{" "}
                       {toolCount === 1 ? "narzędzia" : "narzędzi"}
                     </div>
@@ -1066,13 +1061,15 @@ export function ChatShell({
                       style={{
                         marginTop: 10,
                         paddingTop: 8,
-                        borderTop: "1px solid #333",
+                        borderTop: "1px solid var(--border)",
                         display: "flex",
                         flexDirection: "column",
                         gap: 4,
                       }}
                     >
-                      <span style={{ fontSize: 12, color: "#888" }}>🔗 Źródła:</span>
+                      <span className="muted" style={{ fontSize: 12 }}>
+                        🔗 Źródła:
+                      </span>
                       {sources.map((source) => (
                         <a
                           key={source.sourceId}
@@ -1081,7 +1078,7 @@ export function ChatShell({
                           rel="noreferrer"
                           style={{
                             fontSize: 13,
-                            color: "#6ab0ff",
+                            color: "var(--info)",
                             textDecoration: "none",
                             overflow: "hidden",
                             textOverflow: "ellipsis",
@@ -1101,13 +1098,10 @@ export function ChatShell({
 
         {status === "submitted" && (
           <div
+            className="surface muted"
             style={{
               alignSelf: "flex-start",
               padding: "10px 14px",
-              borderRadius: 12,
-              background: "#1a1a2a",
-              border: "1px solid #333",
-              color: "#aaa",
               fontStyle: "italic",
             }}
           >
@@ -1122,9 +1116,9 @@ export function ChatShell({
               maxWidth: "92%",
               padding: "10px 14px",
               borderRadius: 12,
-              background: "#2a1618",
-              border: "1px solid #7a3b3b",
-              color: "#e8b4b4",
+              background: "var(--danger-bg)",
+              border: "1px solid var(--danger-border)",
+              color: "var(--text)",
               display: "flex",
               flexDirection: "column",
               gap: 8,
@@ -1133,16 +1127,15 @@ export function ChatShell({
             <span>⚠️ {error.message || "Coś poszło nie tak. Spróbuj ponownie."}</span>
             <button
               type="button"
+              className="btn"
               onClick={clearError}
               style={{
                 alignSelf: "flex-start",
                 padding: "4px 12px",
-                borderRadius: 8,
-                border: "1px solid #7a3b3b",
-                background: "transparent",
-                color: "#e8b4b4",
+                borderColor: "var(--danger-border)",
+                background: "var(--bg)",
+                color: "var(--danger)",
                 fontSize: 13,
-                cursor: "pointer",
               }}
             >
               Zamknij i spróbuj ponownie
@@ -1156,17 +1149,17 @@ export function ChatShell({
       {diagnostics && (lastAssistant || isBusy) && (
         <div
           style={{
-            borderTop: "1px solid #333",
-            background: "#0f0f12",
+            borderTop: "1px solid var(--border)",
+            background: "var(--surface)",
             padding: "10px 16px",
             fontSize: 12,
-            color: "#aaa",
+            color: "var(--muted)",
             display: "flex",
             flexDirection: "column",
             gap: 6,
           }}
         >
-          <div style={{ color: "#cfcfe0", fontWeight: 600 }}>🛡️ Diagnostyka</div>
+          <div style={{ color: "var(--text)", fontWeight: 600 }}>🛡️ Diagnostyka</div>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ minWidth: 54 }}>Kroki:</span>
             <div
@@ -1175,7 +1168,7 @@ export function ChatShell({
                 maxWidth: 160,
                 height: 6,
                 borderRadius: 999,
-                background: "#2a2a3a",
+                background: "var(--surface-2)",
                 overflow: "hidden",
               }}
             >
@@ -1200,7 +1193,7 @@ export function ChatShell({
           </div>
           <div>
             Błędy:{" "}
-            <span style={{ color: stats.errors.length > 0 ? "#e8b4b4" : "#8fce8f" }}>
+            <span style={{ color: stats.errors.length > 0 ? "var(--danger)" : "var(--ok)" }}>
               {stats.errors.length}
             </span>
             {elapsedMs != null && (
@@ -1209,14 +1202,17 @@ export function ChatShell({
           </div>
           <div>Status: {diagStatus}</div>
           {stats.errors.map((e, i) => (
-            <div key={i} style={{ color: "#e8b4b4" }}>
+            <div key={i} style={{ color: "var(--danger)" }}>
               🔴 {e.name} — {e.message}
             </div>
           ))}
         </div>
       )}
 
-      <div style={{ borderTop: "1px solid #333", padding: "12px 16px 0" }}>
+      <div
+        className="chat-composer"
+        style={{ borderTop: "1px solid var(--border)", padding: "12px 16px 0" }}
+      >
         {attachments.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
             {attachments.map((att, i) => (
@@ -1228,7 +1224,7 @@ export function ChatShell({
                   style={{
                     maxHeight: 120,
                     borderRadius: 8,
-                    border: "1px solid #444",
+                    border: "1px solid var(--border)",
                     display: "block",
                   }}
                 />
@@ -1244,8 +1240,8 @@ export function ChatShell({
                     height: 22,
                     borderRadius: "50%",
                     border: "none",
-                    background: "#7a3b3b",
-                    color: "#fff",
+                    background: "var(--danger)",
+                    color: "var(--bg)",
                     fontSize: 12,
                     cursor: "pointer",
                     lineHeight: 1,
@@ -1255,17 +1251,20 @@ export function ChatShell({
                 </button>
               </div>
             ))}
-            <span style={{ alignSelf: "center", fontSize: 12, color: "#888" }}>
+            <span className="muted" style={{ alignSelf: "center", fontSize: 12 }}>
               📎 Zadaj pytanie o {attachments.length > 1 ? "te obrazy" : "ten obraz"}
             </span>
           </div>
         )}
 
         {attachError && (
-          <div style={{ color: "#e8b4b4", fontSize: 13, marginBottom: 8 }}>⚠️ {attachError}</div>
+          <div style={{ color: "var(--danger)", fontSize: 13, marginBottom: 8 }}>
+            ⚠️ {attachError}
+          </div>
         )}
 
-        <form onSubmit={handleSubmit} style={{ display: "flex", gap: 8 }}>
+        {/* .chat-composer-row rezerwuje miejsce na maskotkę w prawym dolnym rogu */}
+        <form onSubmit={handleSubmit} className="chat-composer-row" style={{ display: "flex", gap: 8 }}>
           <input
             ref={fileInputRef}
             type="file"
@@ -1276,16 +1275,14 @@ export function ChatShell({
           />
           <button
             type="button"
+            className="btn"
             onClick={() => fileInputRef.current?.click()}
             disabled={isBusy}
             aria-label="Dodaj obraz"
             title="Dodaj obraz"
             style={{
               padding: "10px 14px",
-              borderRadius: 8,
-              border: "1px solid #333",
               background: "transparent",
-              color: "#ccc",
               fontSize: 16,
               cursor: isBusy ? "not-allowed" : "pointer",
             }}
@@ -1293,33 +1290,25 @@ export function ChatShell({
             📎
           </button>
           <input
+            className="input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={inputPlaceholder}
             disabled={isBusy}
             style={{
               flex: 1,
-              padding: "10px 14px",
-              borderRadius: 8,
-              border: "1px solid #333",
-              background: "#141414",
-              color: "#ededed",
+              // Bez minWidth:0 pole nie schodzi poniżej swojej naturalnej
+              // szerokości i cały wiersz wylewa się poza padding (na wąskim
+              // ekranie przycisk „Wyślij" wychodził za krawędź).
+              minWidth: 0,
               fontSize: 15,
-              outline: "none",
             }}
           />
           <button
             type="submit"
+            className="btn-primary"
             disabled={!canSend}
-            style={{
-              padding: "10px 20px",
-              borderRadius: 8,
-              border: "none",
-              background: !canSend ? "#333" : "#2a2a3a",
-              color: "#ededed",
-              fontSize: 15,
-              cursor: !canSend ? "not-allowed" : "pointer",
-            }}
+            style={{ fontSize: 15, cursor: !canSend ? "not-allowed" : "pointer" }}
           >
             Wyślij
           </button>
@@ -1331,14 +1320,12 @@ export function ChatShell({
               <button
                 key={term}
                 type="button"
+                className="btn"
                 onClick={() => fillTerm(term)}
                 disabled={isBusy}
                 style={{
                   padding: "6px 12px",
                   borderRadius: 999,
-                  border: "1px solid #333",
-                  background: "#161620",
-                  color: "#cfcfe0",
                   fontSize: 13,
                   cursor: isBusy ? "not-allowed" : "pointer",
                 }}

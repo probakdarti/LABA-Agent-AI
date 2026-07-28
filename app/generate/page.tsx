@@ -71,44 +71,35 @@ export default function GeneratePage() {
     >
       <div>
         <div style={{ fontSize: 22, fontWeight: 600 }}>🎨 Generator grafik AI</div>
-        <div style={{ fontSize: 13, color: "#888", marginTop: 4 }}>
+        <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
           Opisz co chcesz — AI stworzy obraz w kilka sekund
         </div>
       </div>
 
       <textarea
+        className="input"
         value={prompt}
         onChange={(e) => setPrompt(e.target.value)}
         placeholder="Opisz obraz który chcesz wygenerować..."
         rows={3}
         disabled={loading}
         style={{
-          width: "100%",
           padding: "12px 14px",
-          borderRadius: 10,
-          border: "1px solid #333",
-          background: "#141414",
-          color: "#ededed",
           fontSize: 15,
           fontFamily: "inherit",
           resize: "vertical",
-          outline: "none",
         }}
       />
 
       <button
         type="button"
+        className="btn-primary"
         onClick={() => generate(prompt)}
         disabled={loading || !prompt.trim()}
         style={{
           alignSelf: "flex-start",
           padding: "10px 24px",
-          borderRadius: 8,
-          border: "none",
-          background: loading || !prompt.trim() ? "#333" : "#6a4fd5",
-          color: "#ededed",
           fontSize: 15,
-          fontWeight: 600,
           cursor: loading || !prompt.trim() ? "not-allowed" : "pointer",
         }}
       >
@@ -121,14 +112,12 @@ export default function GeneratePage() {
           <button
             key={ex}
             type="button"
+            className="btn"
             onClick={() => setPrompt(ex)}
             disabled={loading}
             style={{
               padding: "6px 12px",
               borderRadius: 999,
-              border: "1px solid #333",
-              background: "#161620",
-              color: "#cfcfe0",
               fontSize: 12,
               cursor: loading ? "not-allowed" : "pointer",
               textAlign: "left",
@@ -146,12 +135,12 @@ export default function GeneratePage() {
             marginTop: 8,
             height: 320,
             borderRadius: 12,
-            border: "1px solid #333",
-            background: "#161620",
+            border: "1px solid var(--border)",
+            background: "var(--surface)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            color: "#aaa",
+            color: "var(--muted)",
             animation: "vermiPulse 1.4s ease-in-out infinite",
           }}
         >
@@ -166,9 +155,9 @@ export default function GeneratePage() {
             marginTop: 8,
             padding: "12px 14px",
             borderRadius: 12,
-            background: "#2a1618",
-            border: "1px solid #7a3b3b",
-            color: "#e8b4b4",
+            background: "var(--danger-bg)",
+            border: "1px solid var(--danger-border)",
+            color: "var(--text)",
             fontSize: 14,
           }}
         >
@@ -186,42 +175,28 @@ export default function GeneratePage() {
             style={{
               maxWidth: "100%",
               borderRadius: 12,
-              border: "1px solid #333",
+              border: "1px solid var(--border)",
             }}
           />
           {caption && (
-            <p style={{ color: "#bbb", fontSize: 14, lineHeight: 1.5, margin: 0 }}>
+            <p className="muted" style={{ fontSize: 14, lineHeight: 1.5, margin: 0 }}>
               {caption}
             </p>
           )}
           <div style={{ display: "flex", gap: 8 }}>
             <button
               type="button"
+              className="btn-primary"
               onClick={download}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 8,
-                border: "1px solid #333",
-                background: "#2a2a3a",
-                color: "#ededed",
-                fontSize: 14,
-                cursor: "pointer",
-              }}
+              style={{ padding: "8px 16px", fontSize: 14 }}
             >
               💾 Pobierz
             </button>
             <button
               type="button"
+              className="btn"
               onClick={() => generate(lastPrompt)}
-              style={{
-                padding: "8px 16px",
-                borderRadius: 8,
-                border: "1px solid #333",
-                background: "transparent",
-                color: "#ccc",
-                fontSize: 14,
-                cursor: "pointer",
-              }}
+              style={{ padding: "8px 16px", fontSize: 14 }}
             >
               🔄 Ponownie
             </button>
