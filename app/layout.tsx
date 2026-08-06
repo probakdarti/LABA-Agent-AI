@@ -4,12 +4,32 @@ import { NavBar } from "./components/NavBar";
 import { AuthProvider } from "./components/AuthProvider";
 import { VermiMascot } from "./components/VermiMascot";
 
+const APP_DESC =
+  "Agent AI z pamięcią, bazą wiedzy Twojej firmy i automatyzacją. Planuje, analizuje ryzyka i podsumowuje spotkania — po polsku.";
+
 export const metadata: Metadata = {
+  // Bazowy adres — dzięki niemu og:image ma pełny URL (wymagane przez LinkedIn/Slack).
+  metadataBase: new URL("https://verme.eu"),
   title: "VERMI — PM ASSISTANT",
-  description: "Twój agent AI do zadań specjalnych",
+  description: APP_DESC,
   manifest: "/site.webmanifest",
   applicationName: "VERMI",
   // Ikony: app/icon.svg i app/apple-icon.png Next podłącza automatycznie.
+  // Podgląd w social media (L11/W4): obraz generuje app/opengraph-image.tsx —
+  // Next sam dopisuje go do openGraph.images oraz twitter.images.
+  openGraph: {
+    type: "website",
+    locale: "pl_PL",
+    url: "https://verme.eu",
+    siteName: "VERMI",
+    title: "VERMI — PM ASSISTANT",
+    description: APP_DESC,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "VERMI — PM ASSISTANT",
+    description: APP_DESC,
+  },
 };
 
 export const viewport: Viewport = {

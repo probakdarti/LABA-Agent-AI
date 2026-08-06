@@ -16,8 +16,12 @@ const AuthContext = createContext<AuthContextValue>({ user: null, loading: true 
 
 export const useAuth = () => useContext(AuthContext);
 
-// Strony dostępne bez logowania.
+// Strony tylko dla niezalogowanych (zalogowany zostaje odesłany na "/").
 const PUBLIC_PATHS = ["/login"];
+
+// Strony dostępne ZAWSZE — bez przekierowania w żadną stronę.
+// Treść zależy od stanu logowania: "/" = landing (gość) albo Dashboard (użytkownik).
+const HYBRID_PATHS = ["/"];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -38,10 +42,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Ochrona tras: niezalogowany → /login; zalogowany na /login → /
+  // Trasy hybrydowe ("/") są wyłączone z obu przekierowań — decyduje o nich strona.
   useEffect(() => {
     if (loading) return;
     const isPublic = PUBLIC_PATHS.includes(pathname);
-    if (!user && !isPublic) router.replace("/login");
+    const isHybrid = HYBRID_PATHS.includes(pathname);
+    if (!user && !isPublic && !isHybrid) router.replace("/login");
     else if (user && isPublic) router.replace("/");
   }, [user, loading, pathname, router]);
 
@@ -62,8 +68,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const isPublic = PUBLIC_PATHS.includes(pathname);
+  const isHybrid = HYBRID_PATHS.includes(pathname);
   // Podczas przekierowania nie renderujemy chronionej treści.
-  if (!user && !isPublic) return null;
+  // Trasy hybrydowe renderujemy zawsze (landing dla gościa).
+  if (!user && !isPublic && !isHybrid) return null;
 
   return (
     <AuthContext.Provider value={{ user, loading }}>

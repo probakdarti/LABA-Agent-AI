@@ -607,9 +607,10 @@ export function ChatShell({
   const removeAttachment = (index: number) =>
     setAttachments((prev) => prev.filter((_, i) => i !== index));
 
-  // Dokładamy userId do body żądania — serwer używa go do personalizacji i RAG per user.
+  // Dokładamy userId (+ email) do body żądania — serwer używa ich do personalizacji,
+  // RAG per user oraz logów bezpieczeństwa/budżetu (L10/W2–W4).
   const sendOptions = () =>
-    user ? { body: { userId: user.id } } : undefined;
+    user ? { body: { userId: user.id, userEmail: user.email } } : undefined;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

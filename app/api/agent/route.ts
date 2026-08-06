@@ -33,7 +33,11 @@ const SYSTEM_PROMPT = `Jesteś autonomicznym agentem AI z zestawem narzędzi. Sa
 - Jeśli po 3 nieudanych próbach brak danych — powiedz wprost czego brakuje`;
 
 export async function POST(req: Request) {
-  const { messages, userId }: { messages: UIMessage[]; userId?: string } =
+  const {
+    messages,
+    userId,
+    userEmail,
+  }: { messages: UIMessage[]; userId?: string; userEmail?: string } =
     await req.json();
 
   // Personalizacja (W3): profil użytkownika + narzędzia zapisu imienia/preferencji.
@@ -47,6 +51,8 @@ export async function POST(req: Request) {
     messages,
     logPrefix: "AGENT",
     speed: "fast",
+    // Budżet/statystyki (L10/W3 + L11/W2): logujemy zużycie tokenów per endpoint.
+    usageContext: { userId: userId ?? "anonymous", email: userEmail ?? null, endpoint: "/api/agent" },
     tools: {
       calculator,
       currentDateTime,

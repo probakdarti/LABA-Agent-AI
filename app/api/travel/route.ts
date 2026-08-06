@@ -61,7 +61,11 @@ Gdy użytkownik powie "porównaj X i Y" — sprawdź pogodę, walutę i święta
 - Jeśli po 3 nieudanych próbach brak danych — powiedz wprost czego brakuje`;
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const {
+    messages,
+    userId,
+    userEmail,
+  }: { messages: UIMessage[]; userId?: string; userEmail?: string } = await req.json();
 
   return respondWithModelRouting({
     req,
@@ -69,6 +73,8 @@ export async function POST(req: Request) {
     messages,
     logPrefix: "TRAVEL",
     speed: "fast",
+    // Budżet/statystyki (L10/W3 + L11/W2): logujemy zużycie tokenów per endpoint.
+    usageContext: { userId: userId ?? "anonymous", email: userEmail ?? null, endpoint: "/api/travel" },
     maxSteps: 6, // obniżone z 10 dla oszczędności (L06/W0)
     tools: {
       getWeather,
