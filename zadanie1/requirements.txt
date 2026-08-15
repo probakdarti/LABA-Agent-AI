@@ -1,0 +1,6 @@
+# Dostawca użyty w porównaniu (klucz: GOOGLE_GENERATIVE_AI_API_KEY w .env.local)
+google-genai>=1.0.0
+
+# Pozostali dostawcy obsługiwani przez chatbot.py — odkomentuj, gdy dodasz klucz API.
+# openai>=1.0.0        # klucz: OPENAI_API_KEY
+# anthropic>=0.40.0    # klucz: ANTHROPIC_API_KEY

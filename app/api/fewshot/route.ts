@@ -33,12 +33,18 @@ zamiast mieć umowę o pracę. Zarabia więcej netto, ale sam płaci ZUS i nie m
 - Język: polski`;
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const {
+    messages,
+    userId,
+    userEmail,
+  }: { messages: UIMessage[]; userId?: string; userEmail?: string } = await req.json();
 
   return respondWithModelRouting({
     req,
     system: SYSTEM_PROMPT,
     messages,
     logPrefix: "FEWSHOT",
+    // Budżet/statystyki (L10/W3 + L11/W2): logujemy zużycie tokenów per endpoint.
+    usageContext: { userId: userId ?? "anonymous", email: userEmail ?? null, endpoint: "/api/fewshot" },
   });
 }

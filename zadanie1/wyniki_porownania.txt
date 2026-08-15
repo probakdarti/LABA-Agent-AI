@@ -1,0 +1,244 @@
+Direct use of automatic function calling (AFC) in Models.generate_content is not recommended. Instead, we recommend to use AFC in Chat.send_message. Similarly, direct use of AFC in Models.generate_content_stream is not recommended. Instead, we recommend to use AFC in Chat.send_message_stream.
+──────────────────────────────────────────────────────────────────────────────
+  VERMI — PM ASSISTANT  |  chatbot konsolowy (Zadanie 1)
+──────────────────────────────────────────────────────────────────────────────
+  [1] Gemini 2.5 Flash Lite    gemini-2.5-flash-lite      — poprzednia generacja — punkt odniesienia (baseline)
+  [2] Gemini 3.1 Flash Lite    gemini-3.1-flash-lite      — model produkcyjny aplikacji VERMI — najtańszy z generacji 3
+  [3] Gemini 3.6 Flash         gemini-3.6-flash           — najmocniejszy dostępny na darmowym planie (z rozumowaniem)
+──────────────────────────────────────────────────────────────────────────────
+  Komendy: /model <nr>  /porownaj <pytanie>  /reset  /pomoc  /koniec
+──────────────────────────────────────────────────────────────────────────────
+
+──────────────────────────────────────────────────────────────────────────────
+  PYTANIE 1/3: Prowadzę wdrożenie systemu ERP w firmie produkcyjnej, 40 osób, 9 miesięcy. Jakie są 3 największe ryzyka i jak je zmitygować?
+──────────────────────────────────────────────────────────────────────────────
+
+🤖 [Gemini 2.5 Flash Lite · gemini-2.5-flash-lite]
+
+Jasne, chętnie pomogę!
+
+## VERMI — PM ASSISTANT
+
+1.  📋 **Kontekst**
+    Rozumiem, że chcesz zidentyfikować i zaplanować mitygację dla trzech największych ryzyk związanych z wdrożeniem systemu ERP w firmie produkcyjnej o wielkości 40 osób i przewidzianym czasie trwania projektu 9 miesięcy.
+
+2.  🔍 **Analiza**
+    Wdrożenie systemu ERP (Enterprise Resource Planning) w firmie produkcyjnej, szczególnie o średniej wielkości i określonym harmonogramie, niesie ze sobą kilka typowych, aczkolwiek znaczących ryzyk. Bazując na moim doświadczeniu, trzy z nich często okazują się kluczowe:
+
+    *   **Opór ze strony użytkowników i niewystarczające zaangażowanie:** Pracownicy mogą być przyzwyczajeni do dotychczasowych procesów i obawiać się zmian, co prowadzi do niechęci do nauki nowego systemu lub aktywnego sabotowania jego wdrożenia. Brak zrozumienia korzyści płynących z ERP i niedostateczne wsparcie ze strony kadry zarządzającej mogą potęgować ten problem. To ryzyko może skutkować niskim tempem adopcji, błędami w danych i ostatecznie nieosiągnięciem zakładanych celów projektu.
+    *   **Niedoszacowanie zakresu prac lub zbyt ambitny harmonogram:** Wdrożenie ERP to złożony proces, który często wiąże się z nieprzewidzianymi wyzwaniami, takimi jak integracja z istniejącymi systemami, potrzeba dostosowania procesów biznesowych czy konieczność dodatkowego szkolenia. Jeśli początkowy zakres prac nie był dokładnie określony lub harmonogram jest zbyt napięty (jak 9 miesięcy dla 40 osób), istnieje wysokie ryzyko przekroczenia budżetu i/lub terminu.
+    *   **Niewystarczająca jakość danych wejściowych:** System ERP jest tak dobry, jak dane, które do niego trafiają. Migracja danych z istniejących systemów (np. arkuszy kalkulacyjnych, starszych baz danych) jest często procesem żmudnym i podatnym na błędy. Niezweryfikowane, niekompletne lub niepoprawne dane wejściowe mogą prowadzić do poważnych problemów operacyjnych po uruchomieniu systemu, utrudniając podejmowanie decyzji i obniżając efektywność.
+
+3.  ✅ **Rekomendacja**
+    Aby zminimalizować te ryzyka, proponuję następujące działania:
+
+    *   **W zakresie oporu użytkowników i zaangażowania:**
+        *   Wdrożenie kompleksowego **planu zarządzania zmianą**, obejmującego regularną komunikację, warsztaty wyjaśniające korzyści, wczesne zaangażowanie kluczowych użytkowników (tzw. **power users**) w proces testowania i konfiguracji.
+        *   Zorganizowanie profesjonalnych szkoleń dostosowanych do różnych grup użytkowników, a także zapewnienie wsparcia „na żywo” w pierwszych tygodniach po uruchomieniu.
+    *   **W zakresie niedoszacowania zakresu i harmonogramu:**
+        *   Przeprowadzenie szczegółowej analizy **zakresu prac** (scope of work) i jej walidacji z kluczowymi interesariuszami.
+        *   Wprowadzenie procesu kontroli zmian, który pozwoli na ocenę wpływu ewentualnych modyfikacji zakresu na harmonogram i budżet.
+        *   Rozważenie podziału wdrożenia na etapy (jeśli jest to możliwe), aby dostarczyć mniejsze, działające części systemu wcześniej.
+    *   **W zakresie jakości danych:**
+        *   Dokładne zdefiniowanie wymagań dotyczących migracji danych na wczesnym etapie projektu.
+        *   Stworzenie i przeprowadzenie procesu **czyszczenia i walidacji danych** przed ich migracją.
+        *   Zaplanowanie testów migracji danych, aby upewnić się co do ich poprawności przed finalnym przejściem na nowy system.
+
+4.  ❓ **Pytanie**
+    Jakie kroki podjęliście do tej pory w celu oceny gotowości organizacji na przyjęcie nowego systemu ERP i zaangażowania pracowników?
+
+   ⏱ 4.3s | tokeny: 609 in / 970 out
+
+🤖 [Gemini 3.1 Flash Lite · gemini-3.1-flash-lite]
+
+📋 **Kontekst**
+Rozumiem, że stoisz przed wyzwaniem wdrożenia systemu ERP w firmie produkcyjnej o średniej skali, co wiąże się z koniecznością dopasowania technologii do sztywnych procesów operacyjnych.
+
+🔍 **Analiza**
+Największym ryzykiem jest **opór przed zmianą** (niechęć pracowników do porzucenia starych nawyków), który prowadzi do sabotowania systemu lub korzystania z "shadow IT" (nieoficjalnych narzędzi, jak Excel). Równie krytyczne jest **ryzyko niekompletnych danych wejściowych** (tzw. "garbage in, garbage out"), gdzie migracja danych z obecnych systemów jest błędna lub niepełna, co paraliżuje produkcję w momencie startu (Go-Live).
+
+Trzecim kluczowym wyzwaniem jest **rozszerzanie zakresu** (**scope creep** – niekontrolowane zwiększanie wymagań projektu w trakcie jego trwania), co przy 9-miesięcznym horyzoncie czasowym może doprowadzić do przekroczenia budżetu i terminów. W projektach ERP często wynika to z odkrywania luk w procesach dopiero w fazie testów, zamiast na etapie analizy przedwdrożeniowej.
+
+✅ **Rekomendacja**
+1. **Wdrożenie strategii Change Management:** Zidentyfikuj "ambasadorów zmiany" w kluczowych działach, którzy przekonają resztę zespołu do systemu poprzez wsparcie "peer-to-peer" (wsparcie koleżeńskie).
+2. **Audyt i czyszczenie danych (Data Cleansing):** Rozpocznij proces oczyszczania danych w obecnym systemie już teraz, zanim migracja w ogóle wystartuje; to drastycznie zmniejszy ryzyko błędów po wdrożeniu.
+3. **Restrykcyjne zarządzanie zmianą (Change Control Board):** Wprowadź formalny komitet, który ocenia każdą prośbę o zmianę pod kątem wpływu na czas (time) i koszt (cost) – każda nowa funkcjonalność musi mieć swoje uzasadnienie biznesowe (ROI).
+
+❓ **Pytanie**
+Czy na obecnym etapie projektu masz już stworzony rejestr ryzyk (Risk Register), czy zarządzasz nimi w sposób intuicyjny?
+
+   ⏱ 6.0s | tokeny: 609 in / 531 out
+
+🤖 [Gemini 3.6 Flash · gemini-3.6-flash]
+
+📋 **Kontekst**
+Planujesz 9-miesięczne wdrożenie systemu ERP w 40-osobowej firmie produkcyjnej i szukasz 3 największych zagrożeń oraz sposobów ich mitygacji.
+
+🔍 **Analiza**
+W projektach ERP dla sektora produkcyjnego wyzwania rzadko dotyczą samej technologii — najczęściej leżą po stronie ludzi i danych (✓ pewne). Pierwsze kluczowe ryzyko to **opór przed zmianą** ze strony pracowników hal i magazynu, co grozi brakiem adopcji systemu po wdrożeniu. Drugim zagrożeniem jest **rozrost zakresu** (**scope creep** — niekontrolowane rozszerzanie wymagań w trakcie trwania projektu), wynikający z chęci odwzorowania w nowym systemie 1:1 starych, często nieefektywnych nawyków zamiast skorzystania ze standardów ERP.
+
+Trzecim krytycznym punktem jest niedoszacowana **migracja danych** (**data migration** — proces przenoszenia informacji ze starych systemów lub arkuszy Excel do nowej bazy). Niezweryfikowane struktury wyrobów (BOM), błędne stany magazynowe czy nieaktualne karty technologiczne niemal zawsze prowadzą do opóźnień w harmonogramie i przestojów operacyjnych po dojściu do fazy startu (~ przybliżone szacunki wskazują, że problem z danymi dotyka ponad 70% wdrożeń ERP).
+
+✅ **Rekomendacja**
+1. **Zarządzanie zmianą:** Zaangażuj liderów zespołów produkcyjnych jako **kluczowych użytkowników** (**Key Users** — eksperci domenowi reprezentujący biznes w projekcie) od samego początku i zaplanuj wbudowane w harmonogram testy użytkowników.
+2. **Sztywny proces kontroli zmian:** Wprowadź formalny komitet sterujący i zasadę "standard ERP w pierwszej kolejności" — każda modyfikacja kodu systemu musi mieć silne uzasadnienie biznesowe.
+3. **Wczesny audyt danych:** Rozpocznij czyszczenie i standaryzację danych master (indeksy, BOM-y, kontrahenci) już w 1-2 miesiącu projektu, a nie przed samym uruchomieniem.
+
+❓ **Pytanie**
+Na jakim etapie projektu obecnie jesteście — czy macie już wybranego dostawcę ERP i zamkniętą analizę przedwdrożeniową?
+
+   ⏱ 23.5s | tokeny: 609 in / 557 out
+
+──────────────────────────────────────────────────────────────────────────────
+  PODSUMOWANIE — pytanie 1
+──────────────────────────────────────────────────────────────────────────────
+  Model                        Czas   Tok. in  Tok. out    Znaki
+  Gemini 2.5 Flash Lite        4.3s       609       970     3565
+  Gemini 3.1 Flash Lite        6.0s       609       531     1835
+  Gemini 3.6 Flash            23.5s       609       557     1942
+
+
+──────────────────────────────────────────────────────────────────────────────
+  PYTANIE 2/3: Zespół nie dowozi sprintów — commitment 40 SP, dowozimy 25. Od czego zacząć diagnozę?
+──────────────────────────────────────────────────────────────────────────────
+
+🤖 [Gemini 2.5 Flash Lite · gemini-2.5-flash-lite]
+
+📋 **Kontekst:** Rozumiem, że zespół nie realizuje planowanych celów sprintowych i chcesz poznać od czego zacząć diagnozę tej sytuacji.
+
+🔍 **Analiza:** Problem z niedowozem sprintów przy stałym zobowiązaniu (commitment) może mieć wiele przyczyn. Najczęściej są to problemy związane z **oszacowaniem** (estimation) pracy, **priorytetyzacją**, **definicją ukończenia** (Definition of Done - DoD), **zakłóceniami zewnętrznymi** lub **poziomem umiejętności/doświadczenia zespołu**. Warto zacząć od analizy samych historii użytkownika (user stories) i ich wielkości (story points), a także procesów, które wpływają na tempo pracy zespołu. Często kluczowe jest zrozumienie, czy zespół faktycznie jest w stanie wykonać zaplanowaną pracę w ramach jednego sprintu, czy też pojawiają się nieprzewidziane przeszkody.
+
+✅ **Rekomendacja:**
+1.  **Przejrzyj historyczne dane:** Porównaj commitmeny z liczbą zrealizowanych punktów z ostatnich kilku sprintów. Poszukaj trendów.
+2.  **Spotkaj się z zespołem:** Zorganizuj retrospektywę skupioną na problemie niedowozu commitu. Pozwól zespołowi otwarcie mówić o przeszkodach.
+3.  **Zweryfikuj Definition of Done (DoD):** Upewnij się, że DoD jest jasna, zrozumiała dla wszystkich i realistyczna. Czasem zbyt restrykcyjne DoD może spowalniać proces.
+
+❓ **Pytanie:** Czy w ostatnim czasie nastąpiły jakieś zmiany w zespole, procesie lub środowisku pracy, które mogłyby wpłynąć na realizację zadań?
+
+   ⏱ 2.1s | tokeny: 598 in / 399 out
+
+🤖 [Gemini 3.1 Flash Lite · gemini-3.1-flash-lite]
+
+📋 **Kontekst**
+Chcesz zidentyfikować przyczyny chronicznego niedowożenia **velocity** (szybkość zespołu w punktach story points) w stosunku do deklarowanego **commitment** (zobowiązanie zespołu na dany sprint).
+
+🔍 **Analiza**
+Najpierw musimy rozróżnić, czy problemem jest błędna estymacja, czy przeszkody zewnętrzne. Często "nie dowożenie" wynika z tzw. **Scope Creep** (niekontrolowane rozszerzanie zakresu prac w trakcie sprintu) lub ukrytego długu technicznego, który spowalnia deweloperów. Warto sprawdzić, czy **Definition of Done** (zestaw kryteriów, które musi spełnić zadanie, aby zostać uznanym za ukończone) nie jest zbyt rygorystyczne w stosunku do aktualnych kompetencji zespołu.
+
+Przyczyną może być również brak przejrzystości w procesie – jeśli zadania są zbyt duże (tzw. "epiki" zamiast "user stories"), zespół traci kontrolę nad postępem. Spójrz na **Burndown Chart** (wykres pokazujący ilość pracy pozostałej do wykonania) z poprzednich sprintów: czy praca kończy się w ostatnim dniu, czy zespół "stoi" od połowy sprintu?
+
+✅ **Rekomendacja**
+1. **Analiza danych:** Przejrzyj historię sprintów z ostatnich 3 miesięcy – sprawdź, czy 25 SP to stała wartość (stabilne velocity), czy wynik bardzo się waha.
+2. **Warsztat Root Cause Analysis:** Przeprowadź z zespołem dedykowaną sesję "5x Why" (metoda docierania do źródła problemu poprzez zadawanie pytania "dlaczego" pięć razy), skupiając się na tym, co blokuje realizację zadań w trakcie trwania sprintu.
+3. **Redukcja Capacity:** W najbliższym sprincie zaproponuj zespołowi celowe obniżenie "planowanego" zakresu do 25-28 SP, aby odzyskać poczucie sukcesu i stabilność procesu.
+
+❓ **Pytanie**
+Czy zespół zgłasza konkretne przeszkody (np. czekanie na feedback, błędy środowiskowe), czy problemem jest raczej nieprzewidywalność samej złożoności zadań, które bierzecie do sprintu?
+
+   ⏱ 3.8s | tokeny: 598 in / 539 out
+
+🤖 [Gemini 3.6 Flash · gemini-3.6-flash]
+
+📋 **Kontekst**  
+Rozumiem, że borykasz się z dużą, systematyczną luką między zadeklarowaną pojemnością sprintu (40 SP) a rzeczywistym dowożeniem (25 SP), co utrudnia przewidywalność dostaw.
+
+🔍 **Analiza**  
+Mówimy tu o spadku efektywności na poziomie ~37% (✓ pewne). Taka rozbieżność rzadko wynika z niskiej wydajności zespołu — najczęściej przyczyną są błędy w **szacowaniu** (estymowaniu zadań), obecność nieplanowanego zakresu w trakcie sprintu lub spłacanie ukrytego **długu technologicznego** (kodu wymagającego poprawy, który spowalnia pracę).
+
+Warto przeanalizować, czy zadania trafiające do sprintu spełniają standard **DoR** (**Definition of Ready** — definicja gotowości zadania do zabrania do sprintu) oraz czy zespół nie jest blokowany przez zależności zewnętrzne. Częstym błędem jest też planowanie pod tzw. "pojemność idealną" zamiast opieranie się na historycznym **velocity** (średniej prędkości zespołu z ostatnich sprintów).
+
+✅ **Rekomendacja**  
+1. **Przeanalizuj ostatnie 3-5 sprintów** — sprawdź, ile SP stanowiły zadania niezrobione (carryover) oraz czy w trakcie sprintu nie wpadały nieplanowane zgłoszenia z zewnątrz.
+2. **Obniż commitment (deklarację) do realnego velocity** — na najbliższy sprint zaplanujcie ~25-28 SP, aby odzyskać przewidywalność i poczucie sukcesu w zespole.
+3. **Zrób dedykowaną Retrospektywę** — wykorzystaj technikę "5 Whys" (5 x Dlaczego) na 2-3 zadaniach, które "przeskoczyły" na kolejny sprint, aby znaleźć bezpośrednią przyczynę opóźnień.
+
+❓ **Pytanie**  
+Czy ten problem odchylenia (40 SP vs 25 SP) utrzymuje się stale od kilku sprintów, czy pojawił się nagle w ostatnim czasie?
+
+   ⏱ 29.5s | tokeny: 598 in / 500 out
+
+──────────────────────────────────────────────────────────────────────────────
+  PODSUMOWANIE — pytanie 2
+──────────────────────────────────────────────────────────────────────────────
+  Model                        Czas   Tok. in  Tok. out    Znaki
+  Gemini 2.5 Flash Lite        2.1s       598       399     1424
+  Gemini 3.1 Flash Lite        3.8s       598       539     1842
+  Gemini 3.6 Flash            29.5s       598       500     1632
+
+
+──────────────────────────────────────────────────────────────────────────────
+  PYTANIE 3/3: Czym różni się rejestr ryzyk od rejestru problemów?
+──────────────────────────────────────────────────────────────────────────────
+
+🤖 [Gemini 2.5 Flash Lite · gemini-2.5-flash-lite]
+
+1. 📋 **Kontekst**
+Rozumiem, że chcesz poznać kluczowe różnice między rejestrem ryzyk a rejestrem problemów w kontekście zarządzania projektami.
+
+2. 🔍 **Analiza**
+Oba narzędzia, rejestr ryzyk i rejestr problemów, służą do zarządzania niepewnościami w projekcie, ale różnią się przede wszystkim *czasem*, w którym się pojawiają i *charakterem*.
+
+*   **Rejestr ryzyk** (ang. Risk Register) to dynamiczna lista **potencjalnych zdarzeń**, które *mogą* wystąpić w przyszłości i mieć wpływ na projekt (pozytywny lub negatywny). Ryzyko charakteryzuje się niepewnością – nie wiemy na pewno, czy się zmaterializuje. W rejestrze ryzyk dokumentujemy m.in. opis ryzyka, prawdopodobieństwo jego wystąpienia, potencjalny wpływ (konsekwencje), właściciela ryzyka oraz plany reakcji (zapobiegania, łagodzenia, transferu czy akceptacji). Celem rejestru ryzyk jest proaktywne zarządzanie, czyli identyfikacja i przygotowanie na możliwe zagrożenia, zanim się wydarzą.
+
+*   **Rejestr problemów** (ang. Issue Log/Register) to lista **aktualnie występujących nieciągłości lub trudności** (tzw. problemów), które *już się wydarzyły* lub ich wystąpienie jest niemal pewne i mają one bezpośredni negatywny wpływ na projekt. Problem charakteryzuje się tym, że jego wystąpienie jest faktem lub jest bardzo prawdopodobne, a jego skutki są już odczuwalne lub natychmiastowe. W rejestrze problemów dokumentujemy m.in. opis problemu, jego wpływ na projekt (harmonogram, budżet, zakres, jakość), osobę odpowiedzialną za rozwiązanie, priorytet oraz status jego rozwiązania. Celem rejestru problemów jest reaktywne zarządzanie, czyli szybkie i skuteczne rozwiązywanie problemów, które już wpłynęły na projekt.
+
+3. ✅ **Rekomendacja**
+*   Zacznij od ustalenia, które z tych narzędzi są już używane w Twoim projekcie.
+*   Upewnij się, że zespół projektowy rozumie różnicę między ryzykiem a problemem.
+*   Wprowadź jasny proces eskalacji – kiedy coś przestaje być ryzykiem i staje się problemem.
+
+4. ❓ **Pytanie**
+Czy w Twoim projekcie obecnie identyfikujecie i monitorujecie zarówno potencjalne zagrożenia, jak i bieżące problemy?
+
+   ⏱ 3.4s | tokeny: 583 in / 597 out
+
+🤖 [Gemini 3.1 Flash Lite · gemini-3.1-flash-lite]
+
+📋 **Kontekst**
+Wyjaśniam kluczowe różnice między **rejestrem ryzyk** (Risk Register) a **rejestrem problemów** (Issue Log) w procesie zarządzania projektem.
+
+🔍 **Analiza**
+Główna różnica tkwi w czasie wystąpienia zdarzenia oraz podejściu do zarządzania nim. **Ryzyko** to zdarzenie niepewne, które może wystąpić w przyszłości i wpłynąć na projekt (pozytywnie lub negatywnie) – zarządzamy nim proaktywnie poprzez planowanie strategii mitygacji (łagodzenia skutków). **Problem** (często nazywany "issue") to ryzyko, które już się zmaterializowało, czyli zdarzenie, które wystąpiło i wymaga natychmiastowej reakcji lub naprawy (ang. *corrective action*).
+
+Rejestr ryzyk zawiera ocenę prawdopodobieństwa i wpływu zdarzeń, służąc do monitorowania potencjalnych zagrożeń, zanim staną się rzeczywistością. Rejestr problemów natomiast to zestawienie bieżących blokad, które już wpływają na projekt i wymagają przypisania osoby odpowiedzialnej, określonego terminu rozwiązania oraz śledzenia statusu (np. "otwarty", "w trakcie", "zamknięty").
+
+✅ **Rekomendacja**
+1. Prowadź oba rejestry oddzielnie: rejestr ryzyk dla planowania przyszłości, a rejestr problemów dla bieżącej operatywności.
+2. Jeśli ryzyko z rejestru ryzyk się urzeczywistni, przenieś je do rejestru problemów, a w rejestrze ryzyk oznacz jako "zamknięte" (zrealizowane).
+3. Regularnie (np. na spotkaniach statusowych) przeglądaj oba dokumenty, aby nie przeoczyć momentu, w którym ryzyko zamienia się w problem.
+
+❓ **Pytanie**
+Czy potrzebujesz szablonu lub propozycji kolumn, które powinny znaleźć się w obu tych rejestrach, aby były jak najbardziej użyteczne dla Twojego zespołu?
+
+   ⏱ 2.2s | tokeny: 583 in / 469 out
+
+🤖 [Gemini 3.6 Flash · gemini-3.6-flash]
+
+📋 **Kontekst**
+Chcesz poznać kluczową różnicę między dwoma podstawowymi narzędziami do kontroli projektu: rejestrem ryzyk a rejestrem problemów.
+
+🔍 **Analiza**
+Główna różnica sprowadza się do wymiaru czasowego oraz pewności wystąpienia danego zdarzenia:
+
+*   **Rejestr ryzyk** (ang. *Risk Register*) dotyczy zdarzeń niepewnych, które mogą wydarzyć się w **przyszłości** ✓ pewne. Opisuje potencjalne zagrożenia lub szanse, szacując ich **prawdopodobieństwo** (szansa na wystąpienie) oraz **wpływ** (skutki dla projektu) ✓ pewne. Przykład: "Kluczowy programista może odejść z zespołu".
+*   **Rejestr problemów** (ang. *Issue Log*, zwany też rejestrem zagadnień) dotyczy zdarzeń, które dzieją się **teraz** lub już się wydarzyły ✓ pewne. Problem to rzeczywistość – często jest to zmaterializowane ryzyko, które wymaga natychmiastowego działania naprawczego. Przykład: "Kluczowy programista podał się do dymisji".
+
+Gdy ryzyko się urzeczywistnia, przestaje być ryzykiem – staje się problemem i zmienia swój "adres" z rejestru ryzyk do rejestru problemów.
+
+✅ **Rekomendacja**
+1. Prowadź oba rejestry od początku projektu – możesz użyć jednego narzędzia (np. Jiry lub Excela), ale dbaj o wyraźne rozdzielenie statusów.
+2. Każdemu problemowi w rejestrze przypisz od razu osobę odpowiedzialną za jego rozwiązanie (ang. *Issue Owner*) oraz termin naprawy.
+
+❓ **Pytanie**
+Czy potrzebujesz pomocy w przygotowaniu szablonu takiego rejestru dla swojego obecnego projektu?
+
+   ⏱ 16.4s | tokeny: 583 in / 431 out
+
+──────────────────────────────────────────────────────────────────────────────
+  PODSUMOWANIE — pytanie 3
+──────────────────────────────────────────────────────────────────────────────
+  Model                        Czas   Tok. in  Tok. out    Znaki
+  Gemini 2.5 Flash Lite        3.4s       583       597     2092
+  Gemini 3.1 Flash Lite        2.2s       583       469     1635
+  Gemini 3.6 Flash            16.4s       583       431     1457
+

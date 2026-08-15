@@ -1,0 +1,95 @@
+──────────────────────────────────────────────────────────────────────────────
+  VERMI — PM ASSISTANT  |  chatbot konsolowy (Zadanie 1)
+──────────────────────────────────────────────────────────────────────────────
+  [1] Gemini 2.5 Flash Lite    gemini-2.5-flash-lite      — poprzednia generacja — punkt odniesienia (baseline)
+  [2] Gemini 3.1 Flash Lite    gemini-3.1-flash-lite      — model produkcyjny aplikacji VERMI — najtańszy z generacji 3
+  [3] Gemini 3.6 Flash         gemini-3.6-flash           — najmocniejszy dostępny na darmowym planie (z rozumowaniem)
+──────────────────────────────────────────────────────────────────────────────
+  Komendy: /model <nr>  /porownaj <pytanie>  /reset  /pomoc  /koniec
+──────────────────────────────────────────────────────────────────────────────
+
+  Model: Gemini 3.1 Flash Lite (gemini-3.1-flash-lite)
+
+──────────────────────────────────────────────────────────────────────────────
+  TURA 1/3
+──────────────────────────────────────────────────────────────────────────────
+
+🧑 Cześć, mam na imię Paweł. Prowadzę wdrożenie systemu ERP w firmie produkcyjnej — 40 osób w zespole, budżet 9 miesięcy. Od czego zacząć?
+
+🤖 [Gemini 3.1 Flash Lite]
+
+Cześć Pawle! Rozumiem, że stoisz przed wyzwaniem wdrożenia **systemu ERP** (Enterprise Resource Planning – oprogramowanie do zarządzania wszystkimi zasobami firmy) w środowisku produkcyjnym, co wymaga precyzyjnego zarządzania procesami.
+
+### 📋 Kontekst
+Przygotowujesz się do rozpoczęcia 9-miesięcznego wdrożenia systemu ERP dla 40-osobowego zespołu w firmie produkcyjnej.
+
+### 🔍 Analiza
+Wdrożenia ERP w firmach produkcyjnych charakteryzują się wysokim stopniem złożoności ze względu na konieczność mapowania procesów takich jak gospodarka magazynowa, planowanie produkcji (APS/MRP) oraz przepływ dokumentów. Najczęstszą przyczyną niepowodzeń w takich projektach jest "rozmycie" zakresu (tzw. *scope creep*) oraz opór zespołu przed zmianą (Change Management), dlatego kluczowe jest uporządkowanie wymagań biznesowych na samym starcie.
+
+Pracę warto podzielić na etapy: od audytu "stanu zastanego", przez projektowanie rozwiązań, aż po testy i wdrożenie produkcyjne. Przy zespole 40 osób musisz zadbać o wyłonienie tzw. **Key Users** (kluczowych użytkowników – liderów opinii w dziedzinach produkcji, magazynu czy finansów), którzy będą Twoimi ambasadorami systemu i pomogą w walidacji procesów.
+
+### ✅ Rekomendacja
+1. **Przeprowadź sesje warsztatowe typu "As-Is" i "To-Be"**: Zmapuj aktualne procesy i zaprojektuj ich docelowy kształt w nowym systemie, zanim zaczniesz jakąkolwiek konfigurację.
+2. **Ustal strukturę zespołu wdrożeniowego**: Wyznacz liderów poszczególnych działów (produkcja, logistyka, księgowość), którzy będą odpowiedzialni za dostarczenie wymagań i późniejsze testy.
+3. **Zbuduj Harmonogram Krytyczny**: Skup się na tzw. **ścieżce krytycznej** (najdłuższym ciągu zadań, który determinuje datę zakończenia projektu), zwracając szczególną uwagę na migrację danych i integrację z ewentualnymi maszynami lub systemami zewnętrznymi.
+
+### ❓ Pytanie
+Czy na tym etapie masz już wybrany konkretny system ERP, czy jesteś jeszcze w fazie wyboru dostawcy/technologii?
+
+   ⏱ 3.4s | tokeny: 616 in / 567 out
+
+──────────────────────────────────────────────────────────────────────────────
+  TURA 2/3
+──────────────────────────────────────────────────────────────────────────────
+
+🧑 Zespół nie dowozi sprintów: commitment 40 story points, dowozimy średnio 25. Co z tym zrobić?
+
+🤖 [Gemini 3.1 Flash Lite]
+
+### 📋 Kontekst
+Rozumiem, że w Twoim zespole 40-osobowym występuje problem z **przewidywalnością** (predictability), gdzie zespół wykonuje tylko ok. 60% zaplanowanych prac (**Story Points**).
+
+### 🔍 Analiza
+Stałe niedowożenie sprintów wskazuje zazwyczaj na problem z szacowaniem lub nieprzewidzianym obciążeniem zespołu pracą operacyjną (tzw. "gaszenie pożarów" w ERP). Jeśli średnia prędkość zespołu (**Velocity**) wynosi 25 SP przy deklaracji 40, oznacza to, że zespół przeszacowuje swoje możliwości lub ignoruje tzw. **Capacity Planning** (planowanie dostępności zespołu z uwzględnieniem urlopów, spotkań i wsparcia produkcji).
+
+Prawdopodobną przyczyną jest brak uwzględnienia "długu procesowego" lub zadań typu *business-as-usual* (codzienne wsparcie ERP), które pochłaniają czas, a nie są wliczane w **Sprint Backlog**. Zespół może również czuć presję, by akceptować zbyt duży zakres, co prowadzi do spadku morale i jakości dostarczanych rozwiązań.
+
+### ✅ Rekomendacja
+1. **Ogranicz Commitment do średniej Velocity**: Przez najbliższe 2-3 sprinty planuj dokładnie 25 SP. Celem jest budowanie pewności siebie zespołu i odzyskanie rytmu pracy (tzw. *done, done*).
+2. **Wyodrębnij pracę operacyjną**: Jeśli zespół 40 osób ma wspierać bieżącą produkcję, wydziel stały procent czasu (np. 20-30%) na "support" w każdym sprincie, zamiast planować pełne 40 SP jako zadania rozwojowe.
+3. **Analiza przyczyn (Root Cause Analysis)**: Przeprowadź szczegółową retrospektywę, pytając: "Jakie zadania spoza sprintu zabrały nam czas?" oraz "Czy nasze szacunki SP są adekwatne do złożoności zadań ERP?".
+
+### ❓ Pytanie
+Czy zespół pracuje jako jedna duża grupa, czy podzieliłeś ich na mniejsze, wyspecjalizowane zespoły (np. zespół wdrożeniowy, zespół wsparcia, zespół integracji)?
+
+   ⏱ 2.8s | tokeny: 1214 in / 521 out
+
+──────────────────────────────────────────────────────────────────────────────
+  TURA 3/3
+──────────────────────────────────────────────────────────────────────────────
+
+🧑 Podsumuj, co ustaliliśmy do tej pory.
+
+🤖 [Gemini 3.1 Flash Lite]
+
+Oto podsumowanie naszych dotychczasowych ustaleń:
+
+### 📋 Podsumowanie rozmowy
+
+1. **Kontekst wdrożenia ERP**: Omówiliśmy, że wdrożenie systemu ERP w firmie produkcyjnej wymaga precyzyjnego mapowania procesów (model "As-Is" -> "To-Be") oraz wyznaczenia **Key Users**, którzy będą wspierać adopcję systemu w 40-osobowym zespole.
+2. **Problem z wydajnością zespołu**: Zidentyfikowaliśmy, że zespół ma problem z dowożeniem założeń (realizacja 25 SP przy planowanych 40 SP), co wskazuje na prawdopodobne niedoszacowanie prac operacyjnych (wsparcie produkcji) lub błędne planowanie dostępności (**Capacity Planning**).
+3. **Kluczowe kroki naprawcze**:
+   * Zredukowanie planowanego zakresu prac (**Commitment**) do poziomu historycznej średniej zespołu, aby odzyskać przewidywalność.
+   * Formalne wydzielenie czasu na prace operacyjne (support ERP) poza głównym rozwojem funkcjonalności.
+   * Zorganizowanie głębokiej retrospektywy w celu znalezienia przyczyn "przecieków" czasowych.
+
+### ✅ Co dalej?
+Jestem gotowy pomóc Ci w dalszym planowaniu. Możemy teraz:
+* Przeanalizować strukturę Twojego 40-osobowego zespołu (czy podział na mniejsze jednostki/zespoły Scrumowe poprawiłby efektywność?).
+* Przygotować agendę warsztatów z użytkownikami biznesowymi.
+* Zaprojektować szablon monitorowania ryzyka wdrożeniowego.
+
+W czym chcesz, abyśmy pomogli w następnej kolejności, Pawle?
+
+   ⏱ 2.7s | tokeny: 1749 in / 401 out
+

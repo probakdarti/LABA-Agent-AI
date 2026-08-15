@@ -1,0 +1,117 @@
+──────────────────────────────────────────────────────────────────────────────
+  VERMI — PM ASSISTANT  |  chatbot konsolowy (Zadanie 1)
+──────────────────────────────────────────────────────────────────────────────
+  [1] Gemini 2.5 Flash Lite    gemini-2.5-flash-lite      — poprzednia generacja — punkt odniesienia (baseline)
+  [2] Gemini 3.1 Flash Lite    gemini-3.1-flash-lite      — model produkcyjny aplikacji VERMI — najtańszy z generacji 3
+  [3] Gemini 3.6 Flash         gemini-3.6-flash           — najmocniejszy dostępny na darmowym planie (z rozumowaniem)
+──────────────────────────────────────────────────────────────────────────────
+  Komendy: /model <nr>  /porownaj <pytanie>  /reset  /pomoc  /koniec
+──────────────────────────────────────────────────────────────────────────────
+
+  Model: Gemini 2.5 Flash Lite (gemini-2.5-flash-lite)
+
+──────────────────────────────────────────────────────────────────────────────
+  TURA 1/3
+──────────────────────────────────────────────────────────────────────────────
+
+🧑 Cześć, mam na imię Paweł. Prowadzę wdrożenie systemu ERP w firmie produkcyjnej — 40 osób w zespole, budżet 9 miesięcy. Od czego zacząć?
+
+🤖 [Gemini 2.5 Flash Lite]
+
+Cześć, Paweł! Miło mi Cię poznać.
+
+Chętnie pomogę Ci zacząć wdrożenie systemu ERP.
+
+### Kontekst
+Rozumiem, że potrzebujesz wskazówek, od czego zacząć projekt wdrożenia systemu ERP w firmie produkcyjnej z 40-osobowym zespołem i 9-miesięcznym budżetem.
+
+### Analiza
+Rozpoczęcie projektu wdrożenia tak złożonego systemu jak ERP wymaga starannego przygotowania, które zminimalizuje ryzyko i zapewni sprawne przeprowadzenie przez kolejne etapy. Kluczowe jest zdefiniowanie celów projektu, zrozumienie obecnych procesów w firmie i określenie wymagań względem nowego systemu. Bez tych podstawowych informacji, trudne będzie efektywne planowanie dalszych działań, wybór odpowiedniego rozwiązania oraz późniejsze zarządzanie zespołem i budżetem. Szczególnie w przypadku wdrożenia w firmie produkcyjnej, gdzie procesy są zazwyczaj złożone i powiązane, dogłębna analiza przed wdrożeniem jest niezbędna.
+
+Pierwszymi krokami powinny być:
+1.  **Zdefiniowanie celów i zakresu projektu**: Dlaczego wdrożenie jest potrzebne? Jakie konkretne problemy ma rozwiązać? Jakie funkcjonalności są kluczowe, a jakie opcjonalne? Określenie mierzalnych celów (np. skrócenie czasu produkcji o X%, zmniejszenie liczby błędów o Y%) pomoże w późniejszej ocenie sukcesu projektu.
+2.  **Utworzenie zespołu projektowego i określenie ról**: Kto będzie odpowiedzialny za poszczególne obszary? Potrzebny będzie zespół ds. merytorycznych (znający procesy firmy), zespół techniczny (odpowiedzialny za IT) oraz kierownictwo projektu.
+3.  **Analiza procesów biznesowych (As-Is)**: Zmapowanie obecnych procesów w firmie, aby zrozumieć, jak działa organizacja "tu i teraz". Pozwoli to zidentyfikować wąskie gardła, nieefektywności i obszary, które wymagają usprawnienia przez nowy system.
+4.  **Określenie wymagań funkcjonalnych i niefunkcjonalnych**: Na podstawie analizy procesów i celów, należy szczegółowo opisać, czego oczekujemy od systemu ERP. Wymagania funkcjonalne to konkretne funkcje, które system ma posiadać (np. zarządzanie magazynem, planowanie produkcji), a niefunkcjonalne to jego cechy (np. wydajność, bezpieczeństwo, łatwość obsługi).
+
+### Rekomendacja
+Aby rozpocząć wdrożenie systemu ERP, proponuję następujące kroki:
+
+1.  **Zwołaj pierwsze spotkanie kickoffowe** z kluczowymi interesariuszami, aby oficjalnie rozpocząć projekt, przedstawić jego cele i krótko omówić planowane działania.
+2.  **Przydziel rolę lidera ds. analizy procesów** w zespole, który będzie odpowiedzialny za szczegółowe mapowanie obecnych procesów w firmie.
+3.  **Zacznij od stworzenia listy najważniejszych celów biznesowych**, które chcesz osiągnąć dzięki nowemu systemowi.
+
+### Pytanie
+Jakie są główne motywacje i największe wyzwania, z jakimi Twoja firma mierzy się obecnie w kontekście procesów produkcyjnych i zarządzania danymi, które skłoniły Was do decyzji o wdrożeniu systemu ERP?
+
+   ⏱ 3.2s | tokeny: 616 in / 794 out
+
+──────────────────────────────────────────────────────────────────────────────
+  TURA 2/3
+──────────────────────────────────────────────────────────────────────────────
+
+🧑 Zespół nie dowozi sprintów: commitment 40 story points, dowozimy średnio 25. Co z tym zrobić?
+
+🤖 [Gemini 2.5 Flash Lite]
+
+### Kontekst
+Rozumiem, że masz problem z niedotrzymywaniem zobowiązań sprintowych przez zespół, gdzie średnio dowozicie 25 punktów zamiast zakładanych 40.
+
+### Analiza
+Problem z niedotrzymywaniem **commitmentu** (zobowiązania) w sprintach jest bardzo powszechny i może mieć wiele przyczyn. W metodykach zwinnych, takich jak Scrum, stabilność **Velocity** (średnia liczba **story points** lub innej jednostki pracy, którą zespół jest w stanie ukończyć w sprincie) jest kluczowa dla efektywnego planowania przyszłych sprintów i prognozowania. Zbyt optymistyczne planowanie lub problemy z realizacją mogą prowadzić do frustracji, spadku morale zespołu i utraty zaufania ze strony interesariuszy. Średnia 25 vs 40 punktów to znacząca różnica, która wymaga dokładnej analizy.
+
+Najczęstsze przyczyny takiego stanu rzeczy to:
+*   **Nierealistyczne szacunki**: Zespół może przeszacowywać swoją zdolność do wykonania pracy lub nie rozumieć w pełni złożoności zadań.
+*   **Problemy z definicją "Done" (Ukończone)**: Zadania nie są faktycznie w pełni gotowe na koniec sprintu, a są liczone jako dowozone.
+*   **Ciągłe przerywanie pracy**: Zespół jest często odrywany od zadań sprintowych przez inne, pilne prośby lub zmiany priorytetów.
+*   **Niewystarczające rozumienie wymagań**: Zadania są niejasno zdefiniowane, co prowadzi do długotrwałego wyjaśniania lub przepracowywania.
+*   **Problemy techniczne lub zależności**: Opóźnienia spowodowane przez niedostępność środowisk, błędy w systemie lub blokady ze strony innych zespołów.
+*   **Spadek motywacji lub przeciążenie zespołu**: Zespół może być wypalony, przemęczony lub brakować mu motywacji do osiągnięcia ambitnych celów.
+*   **Brak narzędzi lub odpowiedniego wsparcia**: Brak odpowiednich narzędzi do pracy, testowania lub wsparcia ze strony innych działów.
+
+### Rekomendacja
+Aby rozwiązać problem niedotrzymywania commitmentu w sprintach, proponuję następujące działania:
+
+1.  **Przeprowadź szczegółową analizę przyczyn** podczas **Retrospektywy**. Skupcie się na pytaniu, dlaczego konkretne zadania nie zostały ukończone w poprzednich sprintach.
+2.  **Zmniejsz commitmeny w kolejnych sprintach**. Opierajcie się na rzeczywistym Velocity (średnio 25 pkt) zamiast na aspiracyjnym celu (40 pkt). Stopniowo zwiększajcie commitmen, gdy Velocity zacznie się stabilizować i rosnąć.
+3.  **Weryfikujcie i upewnijcie się, że wszystkie zadania spełniają definicję "Done"** przed ich zaliczeniem. Można to robić podczas przeglądu sprintu.
+4.  **Chrońcie zespół przed nieplanowanymi przerwaniami** w trakcie sprintu. Wszystkie nowe prośby powinny trafiać do Product Ownera i być brane pod uwagę dopiero w kolejnych sprintach.
+
+### Pytanie
+Jakie są główne czynniki, które Waszym zdaniem blokują zespół przed dowiezieniem zakładanych 40 story points w sprincie? Czy zespół sam identyfikuje te problemy?
+
+   ⏱ 3.2s | tokeny: 1441 in / 798 out
+
+──────────────────────────────────────────────────────────────────────────────
+  TURA 3/3
+──────────────────────────────────────────────────────────────────────────────
+
+🧑 Podsumuj, co ustaliliśmy do tej pory.
+
+🤖 [Gemini 2.5 Flash Lite]
+
+### Podsumowanie rozmowy
+
+Do tej pory omówiliśmy następujące kluczowe punkty:
+
+1.  **Wdrożenie systemu ERP:**
+    *   Zdefiniowaliśmy początkowe kroki wdrożenia systemu ERP w firmie produkcyjnej (40 osób, budżet 9 miesięcy).
+    *   Kluczowe etapy obejmują:
+        *   Zdefiniowanie celów i zakresu projektu.
+        *   Utworzenie zespołu projektowego z określeniem ról.
+        *   Analizę obecnych procesów biznesowych (As-Is).
+        *   Określenie wymagań funkcjonalnych i niefunkcjonalnych.
+    *   Zasugerowaliśmy pierwsze konkretne działania: kickoff, powołanie lidera analizy procesów i listę celów biznesowych.
+    *   Padło pytanie o główne motywacje i wyzwania obecnych procesów w firmie produkcyjnej.
+
+2.  **Problemy z realizacją sprintów:**
+    *   Zidentyfikowaliśmy problem niedotrzymywania commitmenów sprintowych (średnio 25 zamiast 40 story points).
+    *   Omówiliśmy potencjalne przyczyny tego stanu rzeczy, takie jak nierealistyczne szacunki, problemy z definicją "Done", przerwania pracy, niejasne wymagania czy problemy techniczne.
+    *   Zaproponowaliśmy konkretne rozwiązania: analizę przyczyn na retrospektywie, zmniejszenie commitmenów do rzeczywistego Velocity, weryfikację definicji "Done" oraz ochronę zespołu przed przerwaniami.
+    *   Padło pytanie o główne blokady zespołu i jego świadomość tych problemów.
+
+### Co jeszcze mogę pomóc?
+Jestem gotów pomóc w dalszych krokach związanych z zarządzaniem Twoimi projektami. Czy chcesz kontynuować rozmowę na temat wdrożenia ERP, problemów zespołu, czy może masz inne kwestie związane z zarządzaniem projektami, z którymi mogę Ci pomóc?
+
+   ⏱ 2.3s | tokeny: 2253 in / 452 out
+

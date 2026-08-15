@@ -1,7 +1,13 @@
+"use client";
+
 import { ChatShell } from "../components/ChatShell";
+import { TravelDashboard } from "../components/TravelDashboard";
 
 const TOOLS = [
   { emoji: "🌦️", label: "Pogoda" },
+  { emoji: "📆", label: "Prognoza 7 dni" },
+  { emoji: "🍽️", label: "Restauracje" },
+  { emoji: "💰", label: "Ceny wycieczek" },
   { emoji: "💶", label: "Kursy walut" },
   { emoji: "📅", label: "Święta" },
   { emoji: "📖", label: "Wikipedia" },
@@ -10,9 +16,9 @@ const TOOLS = [
 
 const SCENARIOS = [
   "Planuję weekend w Berlinie. Budżet: 2000 PLN",
-  "Lecę do Paryża na tydzień w sierpniu",
-  "Wycieczka do Pragi z rodziną na 3 dni",
-  "Podróż służbowa do Londynu w przyszłym tygodniu",
+  "Pokaż prognozę na tydzień dla Barcelony",
+  "Poleć restauracje z owocami morza w Lizbonie",
+  "Porównaj ceny wycieczek do Grecji w sierpniu dla 2 osób",
   "Porównaj Barcelonę i Lizbonę na wakacje",
 ];
 
@@ -26,6 +32,7 @@ export default function TravelPage() {
       examples={SCENARIOS}
       toolPanel={TOOLS}
       diagnostics
+      headerPanel={({ ask, busy }) => <TravelDashboard ask={ask} busy={busy} />}
     />
   );
 }

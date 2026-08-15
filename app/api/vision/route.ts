@@ -19,12 +19,18 @@ const SYSTEM_PROMPT = `Jesteś asystentem wizyjnym (vision). Analizujesz obrazy,
 - Format: czysty markdown`;
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const {
+    messages,
+    userId,
+    userEmail,
+  }: { messages: UIMessage[]; userId?: string; userEmail?: string } = await req.json();
 
   return respondWithModelRouting({
     req,
     system: SYSTEM_PROMPT,
     messages,
     logPrefix: "VISION",
+    // Budżet/statystyki (L10/W3 + L11/W2): logujemy zużycie tokenów per endpoint.
+    usageContext: { userId: userId ?? "anonymous", email: userEmail ?? null, endpoint: "/api/vision" },
   });
 }

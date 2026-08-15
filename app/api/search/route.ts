@@ -32,7 +32,11 @@ const SYSTEM_PROMPT = `Jesteś asystentem z dostępem do prawdziwego internetu.
 const URL_REGEX = /https?:\/\/\S+/i;
 
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  const {
+    messages,
+    userId,
+    userEmail,
+  }: { messages: UIMessage[]; userId?: string; userEmail?: string } = await req.json();
 
   // Gemini nie wspiera łączenia własnego narzędzia funkcyjnego (readWebPage)
   // z narzędziem dostawcy (google_search) w jednym wywołaniu — trzeba wybrać
@@ -46,6 +50,8 @@ export async function POST(req: Request) {
     messages,
     logPrefix: "SEARCH",
     forceComplex: true,
+    // Budżet/statystyki (L10/W3 + L11/W2): logujemy zużycie tokenów per endpoint.
+    usageContext: { userId: userId ?? "anonymous", email: userEmail ?? null, endpoint: "/api/search" },
     // Płatny google_search tylko gdy jawnie włączony; inaczej darmowe readWebPage.
     tools:
       hasUrl || !groundingEnabled

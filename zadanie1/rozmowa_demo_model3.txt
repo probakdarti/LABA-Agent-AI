@@ -1,0 +1,96 @@
+──────────────────────────────────────────────────────────────────────────────
+  VERMI — PM ASSISTANT  |  chatbot konsolowy (Zadanie 1)
+──────────────────────────────────────────────────────────────────────────────
+  [1] Gemini 2.5 Flash Lite    gemini-2.5-flash-lite      — poprzednia generacja — punkt odniesienia (baseline)
+  [2] Gemini 3.1 Flash Lite    gemini-3.1-flash-lite      — model produkcyjny aplikacji VERMI — najtańszy z generacji 3
+  [3] Gemini 3.6 Flash         gemini-3.6-flash           — najmocniejszy dostępny na darmowym planie (z rozumowaniem)
+──────────────────────────────────────────────────────────────────────────────
+  Komendy: /model <nr>  /porownaj <pytanie>  /reset  /pomoc  /koniec
+──────────────────────────────────────────────────────────────────────────────
+
+  Model: Gemini 3.6 Flash (gemini-3.6-flash)
+
+──────────────────────────────────────────────────────────────────────────────
+  TURA 1/3
+──────────────────────────────────────────────────────────────────────────────
+
+🧑 Cześć, mam na imię Paweł. Prowadzę wdrożenie systemu ERP w firmie produkcyjnej — 40 osób w zespole, budżet 9 miesięcy. Od czego zacząć?
+
+🤖 [Gemini 3.6 Flash]
+
+📋 **Kontekst**
+Cześć Paweł! Rozumiem, że stoisz przed wyzwaniem wdrożenia systemu **ERP** (*Enterprise Resource Planning* — zintegrowany system zarządzania przedsiębiorstwem) w firmie produkcyjnej z 40-osobowym zespołem i 9-miesięcznym horyzontem czasowym.
+
+🔍 **Analiza**
+Wdrożenia systemów ERP w branży produkcyjnej są wymagające, ponieważ dotykają kluczowych operacji firmy — od magazynu i zakupów, przez planowanie produkcji, aż po finanse. Najczęstszym błędem na samym początku jest natychmiastowe przechodzenie do konfiguracji oprogramowania zamiast ułożenia struktury projektu i dokładnego poznania własnych potrzeb.
+
+W pierwszej fazie kluczowe jest stworzenie **Karty Projektu** (*Project Charter* — formalny dokument definiujący cele, zakres i odpowiedzialności w projekcie) oraz przeprowadzenie rzetelnej **analizy przedwdrożeniowej** (~zazwyczaj zajmuje ona od 1 do 2 miesięcy). Pozwoli to uniknąć kosztownych zmian w trakcie wdrożenia i sprawnie dowozić kolejne kroki w zakładanym 9-miesięcznym harmonogramie.
+
+✅ **Rekomendacja**
+1. **Powołaj Komitet Sterujący** — wyznacz Sponsora Projektu (np. Prezes/COO) oraz właścicieli procesów z kluczowych działów (Produkcja, Logistyka, Finanse), którzy będą podejmować wiążące decyzje.
+2. **Zmapuj procesy "As-Is" i "To-Be"** — opisz, jak procesy produkcyjne i magazynowe działają dzisiaj, a jak mają działać w nowym systemie (zanim dostawca zacznie konfigurację).
+3. **Stwórz Rejestr Ryzyk** — zidentyfikuj główne zagrożenia na starcie (np. opór pracowników przed zmianą, brak dostępności kluczowych ekspertów dziedzinowych).
+
+❓ Paweł, czy macie już wybranego konkretnego dostawcę oprogramowania ERP, czy jesteście jeszcze na etapie wyboru systemu?
+
+   ⏱ 9.5s | tokeny: 616 in / 492 out
+
+──────────────────────────────────────────────────────────────────────────────
+  TURA 2/3
+──────────────────────────────────────────────────────────────────────────────
+
+🧑 Zespół nie dowozi sprintów: commitment 40 story points, dowozimy średnio 25. Co z tym zrobić?
+
+🤖 [Gemini 3.6 Flash]
+
+📋 **Kontekst**
+Paweł, odnosisz się do problemu stałego niedowożeniem zadeklarowanego zakresu w **sprintach** (*Sprint* — powtarzalny, krótki cykl pracy w metodyce zwinnej), gdzie zespół planuje 40 **story points** (*Story Points* — miara złożoności i pracochłonności zadań), a realnie kończy średnio 25.
+
+🔍 **Analiza**
+Sytuacja, którą opisujesz, wskazuje na wyraźny rozjazd między planowaniem a rzeczywistą **prędkością zespołu** (*Velocity* — średnia liczba punktów historii realizowana przez zespół w jednym sprincie). Najczęstszą przyczyną jest traktowanie deklaracji ze **spotkania planistycznego** (*Sprint Planning*) jako życzeniowego celu, zamiast opierania się na twardych danych historycznych (✓ pewne).
+
+Jeśli historyczna średnia zespołu wynosi 25 SP, to Wasza aktualna moce przerobowe to właśnie 25 SP, a nie 40 SP. Sztuczne planowanie na poziomie 40 SP prowadzi do stałej frustracji, obniżenia jakości, a w branży produkcyjnej — do niepotrzebnego rozjeżdżania się harmonogramu wdrożenia ERP (~często skutkuje to narastaniem długu technologicznego lub procesowego).
+
+✅ **Rekomendacja**
+1. **Obniż Commitment do poziomu historycznego Velocity** — na najbliższy sprint zaplanujcie zadania o łącznej wartości maksymalnie 25 SP. Lepiej dowieźć 100% z 25 SP i ewentualnie dobrać zadanie z backlogu, niż dowieźć 60% z 40 SP.
+2. **Przeanalizuj problem na Retrospektywie** — wykorzystaj najbliższą **retrospektywę** (*Sprint Retrospective* — spotkanie podsumowujące pracę zespołu i procesy) i użyj techniki *5 Why* (5 x Dlaczego), aby znaleźć root cause (główną przyczynę) niedowożenia.
+3. **Wprowadź lub zweryfikuj Kryteria Gotowości** — upewnij się, że stosujecie **Definition of Ready** (*DoR* — lista wymagań, które zadanie musi spełnić, aby trafić do sprintu), co zapobiegnie wciąganiu niedokładnie opisanych zadań.
+
+❓ Paweł, czy ten rozjazd wynika z tego, że zadania są niedoszacowane na planowaniu, czy w trakcie sprintu pojawiają się nieplanowane "wrzutki" lub blokery od użytkowników końcowych z produkcji?
+
+   ⏱ 13.4s | tokeny: 1139 in / 604 out
+
+──────────────────────────────────────────────────────────────────────────────
+  TURA 3/3
+──────────────────────────────────────────────────────────────────────────────
+
+🧑 Podsumuj, co ustaliliśmy do tej pory.
+
+🤖 [Gemini 3.6 Flash]
+
+📋 **Kontekst**
+Paweł, oto podsumowanie naszych dotychczasowych ustaleń dotyczących wdrożenia systemu ERP oraz pracy zespołu.
+
+---
+
+### Podsumowanie rozmowy:
+
+1. **Główne tematy:**
+   * **Start wdrożenia ERP** w firmie produkcyjnej (zespół 40 osób, horyzont 9 miesięcy).
+   * **Niedowożenie zakresu w sprintach** (planowanie na 40 SP vs realne wykonanie na poziomie 25 SP).
+
+2. **Kluczowe ustalenia:**
+   * **ERP:** Zamiast od razu konfigurować system, w pierwszej kolejności należy formalnie otworzyć projekt (Karta Projektu), powołać Komitet Sterujący, zmapować procesy ("As-Is" i "To-Be") oraz zidentyfikować ryzyka.
+   * **Sprinty:** Zespół ma realne **Velocity** (prędkość) na poziomie 25 SP (✓ pewne). Deklarację (**commitment**) na kolejny sprint należy obniżyć do 25 SP, aby odzyskać przewidywalność. Przyczyny problemu należy zdiagnozować na retrospektywie i zweryfikować **Definition of Ready** (DoR).
+
+3. **Co jeszcze mogę pomóc:**
+   * Ułożyć strukturę Karty Projektu lub Rejestru Ryzyk dedykowaną dla wdrożenia ERP w produkcji.
+   * Stworzyć checklistę **Definition of Ready** (DoR) do weryfikacji zadań przed sprintem.
+   * Zaplanować strategię zarządzania zmianą (praca z oporem pracowników na produkcji).
+
+---
+
+❓ Paweł, od którego z powyższych punktów chciałbyś przejść do dalszych szczegółów?
+
+   ⏱ 10.9s | tokeny: 1757 in / 402 out
+

@@ -77,7 +77,11 @@ PRIORYTET NARZĘDZI:
 - Jeśli po 3 nieudanych próbach nie masz danych — powiedz wprost czego brakuje`;
 
 export async function POST(req: Request) {
-  const { messages, userId }: { messages: UIMessage[]; userId?: string } =
+  const {
+    messages,
+    userId,
+    userEmail,
+  }: { messages: UIMessage[]; userId?: string; userEmail?: string } =
     await req.json();
 
   return respondWithModelRouting({
@@ -85,6 +89,8 @@ export async function POST(req: Request) {
     system: SYSTEM_PROMPT,
     messages,
     logPrefix: "REACT",
+    // Budżet/statystyki (L10/W3 + L11/W2): logujemy zużycie tokenów per endpoint.
+    usageContext: { userId: userId ?? "anonymous", email: userEmail ?? null, endpoint: "/api/react" },
     speed: "fast", // agent wielokrokowy: najpierw najszybszy model (lite → 2.5 → 3.5)
     maxSteps: 6, // wiele iteracji narzędzi (obniżone z 8 dla oszczędności — L06/W0)
     tools: {

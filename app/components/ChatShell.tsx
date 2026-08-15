@@ -193,6 +193,11 @@ type ChatShellProps = {
   persist?: boolean;
   /** Personalizacja — identyfikuje użytkownika (localStorage) i zna jego imię/preferencje. */
   personalize?: boolean;
+  /**
+   * Panel z dodatkowymi opcjami nad rozmową (np. dashboard podróży).
+   * Dostaje `ask()` do wysłania gotowego pytania i `busy` (czy agent właśnie odpowiada).
+   */
+  headerPanel?: (api: { ask: (text: string) => void; busy: boolean }) => React.ReactNode;
 };
 
 // Wyciąga statystyki z ostatniej wiadomości asystenta (do panelu diagnostyki)
@@ -369,6 +374,7 @@ export function ChatShell({
   diagnostics = false,
   persist = false,
   personalize = false,
+  headerPanel,
 }: ChatShellProps) {
   const { messages, sendMessage, status, setMessages, error, clearError } =
     useChat({
@@ -607,9 +613,10 @@ export function ChatShell({
   const removeAttachment = (index: number) =>
     setAttachments((prev) => prev.filter((_, i) => i !== index));
 
-  // Dokładamy userId do body żądania — serwer używa go do personalizacji i RAG per user.
+  // Dokładamy userId (+ email) do body żądania — serwer używa ich do personalizacji,
+  // RAG per user oraz logów bezpieczeństwa/budżetu (L10/W2–W4).
   const sendOptions = () =>
-    user ? { body: { userId: user.id } } : undefined;
+    user ? { body: { userId: user.id, userEmail: user.email } } : undefined;
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -780,6 +787,13 @@ export function ChatShell({
               {t.emoji} {t.label} ✅
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Panel dodatkowych opcji (np. dashboard podróży) */}
+      {headerPanel && (
+        <div style={{ borderBottom: "1px solid var(--border)", background: "var(--surface)" }}>
+          {headerPanel({ ask: askExample, busy: isBusy })}
         </div>
       )}
 

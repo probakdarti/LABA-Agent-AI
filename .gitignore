@@ -22,6 +22,10 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Python (zadanie1/)
+__pycache__/
+*.pyc
+
 # różne
 .DS_Store
 *.pem

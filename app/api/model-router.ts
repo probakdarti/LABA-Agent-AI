@@ -9,6 +9,8 @@ import {
   type ToolSet,
   type UIMessage,
 } from "ai";
+import { redactStream } from "@/lib/defense";
+import { logUsage } from "@/lib/usage";
 
 // ── Model Gemini (ten sam klucz API) ─────────────────────────────────────────
 // Optymalizacja kosztów (L06/W0): całe API korzysta z jednego, najtańszego modelu.
@@ -162,6 +164,8 @@ export function respondWithModelRouting({
   tools,
   maxSteps = 3,
   speed,
+  redactOutput = false,
+  usageContext,
 }: {
   req: Request;
   system: string;
@@ -175,6 +179,10 @@ export function respondWithModelRouting({
   maxSteps?: number;
   /** "fast" — zadania agentowe: najszybszy model na start (lite → 2.5 → 3.5). */
   speed?: "fast";
+  /** Filtr wyjścia (L10/W2): redaguje wrażliwe wzorce w strumieniu odpowiedzi. */
+  redactOutput?: boolean;
+  /** Budżet kosztów (L10/W3): loguje zużycie tokenów zwycięskiego modelu. */
+  usageContext?: { userId: string; email?: string | null; endpoint: string };
 }) {
   return (async () => {
     const modelMessages = await convertToModelMessages(messages, { tools });
@@ -239,7 +247,27 @@ export function respondWithModelRouting({
             );
 
             console.log(`[${logPrefix}] Odpowiada model: ${modelId}`);
-            writer.merge(safeStream);
+
+            // Budżet kosztów (L10/W3) — po zakończeniu streamu logujemy zużycie
+            // tokenów zwycięskiego modelu (fire-and-forget, nie blokuje odpowiedzi).
+            if (usageContext) {
+              const ctx = usageContext;
+              void Promise.resolve(result.totalUsage)
+                .then((u) =>
+                  logUsage({
+                    userId: ctx.userId,
+                    email: ctx.email ?? null,
+                    tokensInput: u.inputTokens ?? 0,
+                    tokensOutput: u.outputTokens ?? 0,
+                    model: modelId,
+                    endpoint: ctx.endpoint,
+                  }),
+                )
+                .catch((e: unknown) => console.warn(`[${logPrefix}] usage log:`, e));
+            }
+
+            // Filtr wyjścia (L10/W2) — redakcja wrażliwych danych zanim trafią do klienta.
+            writer.merge(redactOutput ? redactStream(safeStream) : safeStream);
             req.signal.removeEventListener("abort", onAbort);
             return; // sukces
           } catch (err) {

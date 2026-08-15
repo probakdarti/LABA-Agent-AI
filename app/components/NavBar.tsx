@@ -8,9 +8,11 @@ import { useAuth } from "./AuthProvider";
 import { Icon, type IconName } from "./BrandIcons";
 import { VermiLockup } from "./VermiLockup";
 import { ThemeToggle } from "./ThemeToggle";
+import { isAdmin } from "@/lib/admin";
 
-const LINKS: { href: string; label: string; icon: IconName; primary?: boolean }[] = [
+const LINKS: { href: string; label: string; icon: IconName; primary?: boolean; adminOnly?: boolean }[] = [
   { href: "/", label: "Dashboard", icon: "dashboard", primary: true },
+  { href: "/pm-todo", label: "PM TO DO", icon: "checklist" },
   { href: "/agent", label: "Agent", icon: "agent" },
   { href: "/react", label: "ReAct", icon: "react" },
   { href: "/travel", label: "Podróże", icon: "travel" },
@@ -30,13 +32,17 @@ const LINKS: { href: string; label: string; icon: IconName; primary?: boolean }[
   { href: "/vision", label: "Vision", icon: "vision" },
   { href: "/fewshot", label: "Słownik", icon: "dictionary" },
   { href: "/format", label: "Formater", icon: "format" },
+  { href: "/admin/dashboard", label: "Statystyki", icon: "stats", adminOnly: true },
+  { href: "/admin/security", label: "Bezpieczeństwo", icon: "shield", adminOnly: true },
 ];
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const admin = isAdmin(user?.email);
   return (
     <>
-      {LINKS.map((link) => {
+      {LINKS.filter((link) => !link.adminOnly || admin).map((link) => {
         const active = pathname === link.href;
         const cls = ["nav-link", link.primary ? "primary" : "", active ? "active" : ""]
           .filter(Boolean)
