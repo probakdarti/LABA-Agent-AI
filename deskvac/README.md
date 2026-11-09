@@ -48,11 +48,15 @@ W **Ustawieniach**:
 
 ## „Nie odkurzaj!”
 
-Prawy przycisk na ikonie pulpitu → **Pokaż więcej opcji** → **DeskVac: Nie odkurzaj! / Pozwól odkurzać**.
-Działa dla wielu zaznaczonych ikon naraz (jeszcze raz = zdejmuje ochronę). Chronione ikony robot omija,
-a przy skanie lidarem dostają złotą tarczę. Listą chronionych zarządzasz też w Ustawieniach.
+Trzy sposoby, wszystkie działają od razu:
+- **Przeciągnij ikony z pulpitu** na pole „🛡 Chronione” w panelu albo na listę w Ustawieniach
+  (plik zostaje na miejscu – zapisywana jest tylko ścieżka).
+- **Prawy przycisk** na ikonie → **Pokaż więcej opcji** → **Nie odkurzaj!**. Przy chronionej ikonie
+  w tym miejscu pojawia się **Pozwól odkurzać!**. Działa dla wielu zaznaczonych ikon naraz.
+- **Ustawienia → Chronione elementy**: lista z ikonami, „Dodaj plik/folder…”, „Pozwól odkurzać zaznaczone” (lub klawisz Delete).
 
-Pozycja jest w klasycznym menu (Windows 11 dopuszcza do skróconego menu tylko podpisane pakiety MSIX).
+Chronione ikony robot omija, a przy skanie lidarem dostają złotą tarczę.
+Pozycje są w klasycznym menu (Windows 11 dopuszcza do skróconego menu tylko podpisane pakiety MSIX).
 
 ## Jak to działa
 

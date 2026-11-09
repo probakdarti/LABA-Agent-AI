@@ -6,6 +6,7 @@ using System.Windows.Threading;
 using DeskVac.Core;
 using DeskVac.Native;
 using DeskVac.Overlay;
+using DeskVac.Platform;
 
 namespace DeskVac.Panel;
 
@@ -44,6 +45,50 @@ public partial class MainWindow : Window
         };
 
         _ui.Tick += (_, _) => RefreshUi();
+
+        ProtectDrop.DragEnter += OnProtectDragOver;
+        ProtectDrop.DragOver += OnProtectDragOver;
+        ProtectDrop.DragLeave += (_, _) => HighlightDrop(false);
+        ProtectDrop.Drop += OnProtectDrop;
+        ProtectDrop.MouseLeftButtonUp += (_, _) => ((App)Application.Current).ShowSettings();
+        RefreshProtectedCount();
+    }
+
+    // ------------------------------------------------------------------ przeciąganie ikon = ochrona
+
+    private void OnProtectDragOver(object sender, DragEventArgs e)
+    {
+        // „Łącze”, nie kopiowanie/przenoszenie – Eksplorator nic nie robi z plikiem, my tylko zapisujemy ścieżkę
+        bool files = e.Data.GetDataPresent(DataFormats.FileDrop);
+        e.Effects = files ? DragDropEffects.Link : DragDropEffects.None;
+        HighlightDrop(files);
+        e.Handled = true;
+    }
+
+    private void OnProtectDrop(object sender, DragEventArgs e)
+    {
+        HighlightDrop(false);
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length > 0)
+        {
+            ((App)Application.Current).SetProtected(paths, true, notify: false);
+            ShowProblem($"🛡 Chronione: {string.Join(", ", paths.Select(Path.GetFileName).Take(4))}{(paths.Length > 4 ? "…" : "")}");
+        }
+        e.Effects = DragDropEffects.Link;
+        e.Handled = true;
+    }
+
+    private void HighlightDrop(bool on)
+    {
+        ProtectDrop.BorderBrush = on
+            ? (System.Windows.Media.Brush)FindResource("Warn")
+            : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x3A, 0x32, 0x20));
+        ProtectDropHint.Text = on ? "Upuść – robot nie ruszy tych elementów" : "Przeciągnij tu ikony z pulpitu – robot ich nie ruszy";
+    }
+
+    public void RefreshProtectedCount()
+    {
+        int n = _settings.ProtectedPaths.Count;
+        ProtectedCountText.Text = n == 0 ? "Chronione: brak" : $"Chronione: {n} {Notifications.Plural(n)}";
     }
 
     protected override void OnClosing(CancelEventArgs e)

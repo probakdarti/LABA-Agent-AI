@@ -106,13 +106,19 @@
           <StackPanel>
             <TextBlock Text="Chronione elementy – „Nie odkurzaj!”" Style="{StaticResource Header}"/>
             <TextBlock Style="{StaticResource Hint}"
-                       Text="Na pulpicie: prawy przycisk na ikonie → Pokaż więcej opcji → „DeskVac: Nie odkurzaj! / Pozwól odkurzać”. Działa też dla wielu zaznaczonych ikon naraz."/>
-            <ListBox x:Name="ProtectedList" Height="130" Background="#10141A" Foreground="{StaticResource Text}"
-                     BorderBrush="#2F3640" SelectionMode="Extended" FontSize="12"/>
+                       Text="Przeciągnij ikony z pulpitu na listę poniżej albo: prawy przycisk na ikonie → Pokaż więcej opcji → „Nie odkurzaj!” (i „Pozwól odkurzać!”, żeby zdjąć ochronę). Zmiany działają od razu."/>
+            <Grid>
+              <ListBox x:Name="ProtectedList" Height="190" Background="#10141A" Foreground="{StaticResource Text}"
+                       BorderBrush="#3A3220" BorderThickness="1" SelectionMode="Extended" FontSize="12" AllowDrop="True"
+                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
+              <TextBlock x:Name="ProtectedEmpty" IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
+                         TextAlignment="Center" Foreground="{StaticResource Muted}" FontSize="13"
+                         Text="🛡&#x0a;Przeciągnij tutaj ikony z pulpitu"/>
+            </Grid>
             <StackPanel Orientation="Horizontal" Margin="0,8,0,10">
               <Button Content="Dodaj plik…" Style="{StaticResource PillButton}" Padding="10,5" Click="OnAddFile"/>
               <Button Content="Dodaj folder…" Style="{StaticResource PillButton}" Padding="10,5" Margin="8,0,0,0" Click="OnAddFolder"/>
-              <Button Content="Usuń zaznaczone" Style="{StaticResource PillButton}" Padding="10,5" Margin="8,0,0,0" Click="OnRemoveProtected"/>
+              <Button  Content="Pozwól odkurzać zaznaczone" Style="{StaticResource PillButton}" Padding="10,5" Margin="8,0,0,0" Click="OnRemoveProtected"/>
             </StackPanel>
             <TextBlock Text="Nie ruszaj też elementów o nazwach (oddzielone przecinkami):" Style="{StaticResource Hint}"/>
             <TextBox x:Name="ExclusionsBox" Style="{StaticResource Field}"/>

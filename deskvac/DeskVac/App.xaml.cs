@@ -21,7 +21,7 @@ public partial class App : Application
     private TrayIcon? _tray;
     private Scheduler? _scheduler;
     private SettingsWindow? _settingsWindow;
-    private readonly List<string> _pendingToggles = new();
+    private readonly List<(string Path, bool? Protect)> _pendingToggles = new();
     private DispatcherTimer? _toggleTimer;
 
     public AppSettings Settings { get; private set; } = new();
@@ -114,7 +114,13 @@ public partial class App : Application
                     ExitApp();
                     return;
                 case "--toggle-protect" when i + 1 < args.Length:
-                    QueueToggle(args[++i]);
+                    QueueToggle(args[++i], null);
+                    break;
+                case "--protect" when i + 1 < args.Length:
+                    QueueToggle(args[++i], true);
+                    break;
+                case "--unprotect" when i + 1 < args.Length:
+                    QueueToggle(args[++i], false);
                     break;
                 case "--tray":
                     break;
@@ -123,9 +129,9 @@ public partial class App : Application
     }
 
     /// <summary>Menu kontekstowe uruchamia DeskVac osobno dla każdej zaznaczonej ikony – zbieramy je i pokazujemy jedno powiadomienie.</summary>
-    private void QueueToggle(string path)
+    private void QueueToggle(string path, bool? protect)
     {
-        _pendingToggles.Add(path.Trim('"'));
+        _pendingToggles.Add((path.Trim('"'), protect));
         if (_toggleTimer is null)
         {
             _toggleTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(700) };
@@ -137,21 +143,41 @@ public partial class App : Application
 
     private void ApplyToggles()
     {
-        var on = new List<string>();
-        var off = new List<string>();
-        foreach (var p in _pendingToggles.Distinct(StringComparer.OrdinalIgnoreCase))
-            (Settings.ToggleProtected(p) ? on : off).Add(Path.GetFileName(p.TrimEnd('\\')));
+        var batch = _pendingToggles.ToList();
         _pendingToggles.Clear();
-        Settings.Save();
-        _settingsWindow?.ReloadProtected();
+        var on = batch.Where(b => b.Protect == true || (b.Protect is null && !Settings.IsProtected(b.Path))).Select(b => b.Path).ToList();
+        var off = batch.Select(b => b.Path).Except(on, StringComparer.OrdinalIgnoreCase).ToList();
+        SetProtected(on, true, notify: true);
+        SetProtected(off, false, notify: true);
+    }
 
-        static string Names(List<string> l) => string.Join(", ", l.Take(4)) + (l.Count > 4 ? $" i {l.Count - 4} więcej" : "");
-        if (on.Count > 0 && off.Count == 0)
-            Notifications.Info($"🛡 Nie odkurzaj: {on.Count} {Notifications.Plural(on.Count)}", Names(on) + " – robot to ominie.");
-        else if (off.Count > 0 && on.Count == 0)
-            Notifications.Info($"🧹 Znowu do odkurzania: {off.Count} {Notifications.Plural(off.Count)}", Names(off));
-        else if (on.Count + off.Count > 0)
-            Notifications.Info("DeskVac: zmieniono ochronę", $"Chronione: {Names(on)}. Do odkurzania: {Names(off)}.");
+    /// <summary>
+    /// Jedno miejsce zmiany ochrony (menu kontekstowe, przeciąganie, lista w ustawieniach):
+    /// zapis ustawień, odświeżenie warunków menu kontekstowego, odświeżenie okien.
+    /// </summary>
+    public void SetProtected(IEnumerable<string> paths, bool protect, bool notify)
+    {
+        var changed = new List<string>();
+        foreach (var raw in paths.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            var p = raw.Trim().Trim('"').TrimEnd('\\');
+            if (p.Length == 0 || Settings.IsProtected(p) == protect) continue;
+            Settings.ToggleProtected(p);
+            changed.Add(Path.GetFileName(p));
+        }
+        if (changed.Count == 0) return;
+
+        Settings.Save();
+        ShellIntegration.RegisterContextMenu(Settings.ContextMenuOnlyOnDesktop, Settings.ProtectedPaths);
+        _settingsWindow?.ReloadProtected();
+        Panel.RefreshProtectedCount();
+
+        if (!notify) return;
+        string names = string.Join(", ", changed.Take(4)) + (changed.Count > 4 ? $" i {changed.Count - 4} więcej" : "");
+        if (protect)
+            Notifications.Info($"🛡 Nie odkurzaj: {changed.Count} {Notifications.Plural(changed.Count)}", names + " – robot to ominie.");
+        else
+            Notifications.Info($"🧹 Pozwól odkurzać: {changed.Count} {Notifications.Plural(changed.Count)}", names);
     }
 
     private void HandleToast(string argument)
@@ -231,14 +257,41 @@ public partial class App : Application
 
     public void ShowSettings()
     {
-        if (_settingsWindow is { IsLoaded: true })
+        try
         {
-            _settingsWindow.Activate();
-            return;
+            // okno już otwarte – mogło zostać zminimalizowane (np. przez „Zminimalizuj okna na czas sprzątania”)
+            if (_settingsWindow is { IsLoaded: true } open)
+            {
+                BringToFront(open);
+                return;
+            }
+            var w = new SettingsWindow(Settings, Controller);
+            w.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(_settingsWindow, w)) _settingsWindow = null;
+                Panel.LoadQuickSettings();
+            };
+            _settingsWindow = w;
+            w.Show();
+            BringToFront(w);
         }
-        _settingsWindow = new SettingsWindow(Settings, Controller);
-        _settingsWindow.Closed += (_, _) => { _settingsWindow = null; Panel.LoadQuickSettings(); };
-        _settingsWindow.Show();
+        catch (Exception ex)
+        {
+            _settingsWindow = null;
+            MessageBox.Show("Nie udało się otworzyć ustawień: " + ex.Message, "DeskVac", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    /// <summary>Przywraca (także ze stanu zminimalizowanego) i wyciąga okno na wierzch.</summary>
+    private static void BringToFront(Window w)
+    {
+        if (!w.IsVisible) w.Show();
+        if (w.WindowState == WindowState.Minimized) w.WindowState = WindowState.Normal;
+        w.Activate();
+        // Windows potrafi odmówić aktywacji – chwilowe „zawsze na wierzchu” wymusza widoczność
+        w.Topmost = true;
+        w.Topmost = false;
+        w.Focus();
     }
 
     private void ShowMenu()

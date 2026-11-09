@@ -44,6 +44,10 @@ public partial class SettingsWindow : Window
             _settings.OffsetY = _origOffsetY;
         };
         Load();
+        ProtectedList.DragEnter += OnProtectDragOver;
+        ProtectedList.DragOver += OnProtectDragOver;
+        ProtectedList.Drop += OnProtectDrop;
+        ProtectedList.KeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Delete) OnRemoveProtected(this, new RoutedEventArgs()); };
     }
 
     private void Load()
@@ -66,8 +70,7 @@ public partial class SettingsWindow : Window
         FillDays(AutoDaysPanel, _settings.AutoCleanDays);
         AutoQuietBox.IsChecked = _settings.AutoCleanQuiet;
 
-        ProtectedList.Items.Clear();
-        foreach (var p in _settings.ProtectedPaths) ProtectedList.Items.Add(p);
+        ReloadProtected();
         ExclusionsBox.Text = string.Join(", ", _settings.Exclusions);
         MenuOnlyDesktopBox.IsChecked = _settings.ContextMenuOnlyOnDesktop;
 
@@ -79,7 +82,49 @@ public partial class SettingsWindow : Window
     public void ReloadProtected()
     {
         ProtectedList.Items.Clear();
-        foreach (var p in _settings.ProtectedPaths) ProtectedList.Items.Add(p);
+        foreach (var p in _settings.ProtectedPaths.OrderBy(Path.GetFileName, StringComparer.CurrentCultureIgnoreCase))
+            ProtectedList.Items.Add(MakeRow(p));
+        ProtectedEmpty.Visibility = ProtectedList.Items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Wiersz listy: ikona, nazwa, ścieżka (wyszarzona, gdy elementu już nie ma na dysku).</summary>
+    private ListBoxItem MakeRow(string path)
+    {
+        bool exists = File.Exists(path) || Directory.Exists(path);
+        var name = Path.GetFileName(path.TrimEnd('\\'));
+        if (name.EndsWith(".lnk", StringComparison.OrdinalIgnoreCase) || name.EndsWith(".url", StringComparison.OrdinalIgnoreCase))
+            name = Path.GetFileNameWithoutExtension(name);
+
+        var row = new DockPanel { Margin = new Thickness(2, 3, 2, 3), Opacity = exists ? 1 : 0.5 };
+        var icon = new System.Windows.Controls.Image { Width = 16, Height = 16, Margin = new Thickness(0, 0, 8, 0), Source = FileIcons.Small(path) };
+        DockPanel.SetDock(icon, Dock.Left);
+        row.Children.Add(icon);
+        var text = new StackPanel();
+        text.Children.Add(new TextBlock { Text = exists ? name : name + "  (nie ma już na dysku)", FontWeight = FontWeights.SemiBold });
+        text.Children.Add(new TextBlock
+        {
+            Text = path,
+            FontSize = 11,
+            Foreground = (System.Windows.Media.Brush)FindResource("Muted"),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+        });
+        row.Children.Add(text);
+        return new ListBoxItem { Content = row, Tag = path, ToolTip = path };
+    }
+
+    private void OnProtectDragOver(object sender, DragEventArgs e)
+    {
+        // „Łącze” – Eksplorator nie kopiuje ani nie przenosi pliku, my tylko zapamiętujemy ścieżkę
+        e.Effects = e.Data.GetDataPresent(DataFormats.FileDrop) ? DragDropEffects.Link : DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void OnProtectDrop(object sender, DragEventArgs e)
+    {
+        if (e.Data.GetData(DataFormats.FileDrop) is string[] paths)
+            ((App)Application.Current).SetProtected(paths, true, notify: false);
+        e.Effects = DragDropEffects.Link;
+        e.Handled = true;
     }
 
     private static void FillDays(WrapPanel panel, List<DayOfWeek> selected)
@@ -136,8 +181,7 @@ public partial class SettingsWindow : Window
             Title = "Wybierz elementy, których robot ma nie ruszać",
         };
         if (dlg.ShowDialog(this) != true) return;
-        foreach (var f in dlg.FileNames)
-            if (!ProtectedList.Items.Contains(f)) ProtectedList.Items.Add(f);
+        ((App)Application.Current).SetProtected(dlg.FileNames, true, notify: false);
     }
 
     private void OnAddFolder(object sender, RoutedEventArgs e)
@@ -149,14 +193,18 @@ public partial class SettingsWindow : Window
             Title = "Wybierz foldery, których robot ma nie ruszać",
         };
         if (dlg.ShowDialog(this) != true) return;
-        foreach (var f in dlg.FolderNames)
-            if (!ProtectedList.Items.Contains(f)) ProtectedList.Items.Add(f);
+        ((App)Application.Current).SetProtected(dlg.FolderNames, true, notify: false);
     }
 
     private void OnRemoveProtected(object sender, RoutedEventArgs e)
     {
-        foreach (var item in ProtectedList.SelectedItems.Cast<object>().ToList())
-            ProtectedList.Items.Remove(item);
+        var paths = ProtectedList.SelectedItems.Cast<ListBoxItem>().Select(i => (string)i.Tag).ToList();
+        if (paths.Count == 0)
+        {
+            SaveInfo.Text = "Zaznacz na liście elementy, które robot może znowu odkurzać.";
+            return;
+        }
+        ((App)Application.Current).SetProtected(paths, false, notify: false);
     }
 
     private void OnTestReminder(object sender, RoutedEventArgs e)
@@ -229,7 +277,6 @@ public partial class SettingsWindow : Window
         _settings.AutoCleanDays = ReadDays(AutoDaysPanel);
         _settings.AutoCleanQuiet = AutoQuietBox.IsChecked == true;
 
-        _settings.ProtectedPaths = ProtectedList.Items.Cast<string>().ToList();
         _settings.Exclusions = ExclusionsBox.Text
             .Split(new[] { ',', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();

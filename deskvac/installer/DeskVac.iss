@@ -48,6 +48,8 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
   ValueData: """{app}\DeskVac.exe"" --tray"; Tasks: autostart; Flags: uninsdeletevalue
 ; pozycję „Nie odkurzaj!” rejestruje sam program; tu tylko gwarancja usunięcia przy deinstalacji
 Root: HKCU; Subkey: "Software\Classes\AllFilesystemObjects\shell\DeskVac.Protect"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Classes\AllFilesystemObjects\shell\DeskVac.NoVacuum"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Classes\AllFilesystemObjects\shell\DeskVac.AllowVacuum"; Flags: uninsdeletekey dontcreatekey
 
 [Run]
 Filename: "{app}\DeskVac.exe"; Description: "Uruchom DeskVac"; Flags: nowait postinstall skipifsilent
