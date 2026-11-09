@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 env:
-  DESKVAC_VERSION: "0.4.${{ github.run_number }}"
+  DESKVAC_VERSION: "0.5.${{ github.run_number }}"
 
 jobs:
   build:

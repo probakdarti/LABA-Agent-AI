@@ -30,7 +30,8 @@ dotnet run -c Release
 - **Zasobnik systemowy**: ikona DeskVac obok zegara. Lewy klik otwiera panel, prawy klik pokazuje menu
   (Sprzątaj teraz, Ustawienia, Cofnij, Zakończ). Zamknięcie panelu krzyżykiem chowa go do zasobnika.
 - **Robot przy stacji** stoi w prawym dolnym rogu monitora głównego, pod oknami programów. Gdy pokażesz
-  pulpit (Win+D, kliknięcie w pulpit), wychodzi na wierzch. Kliknięcie robota otwiera panel.
+  pulpit (Win+D, kliknięcie w pulpit), wychodzi na wierzch. Kliknięcie robota otwiera panel,
+  **potrójne kliknięcie od razu uruchamia sprzątanie**, a prawy przycisk pokazuje menu.
 - **Wszystkie monitory**: robot skanuje i sprząta ikony na każdym monitorze (tryb „Rozszerz te ekrany”),
   także przy różnym skalowaniu (np. 100% i 150%). Pozycje ikon są odczytywane wprost z Eksploratora.
 - **Jedna kopia programu**: kolejne uruchomienia (skrót, menu kontekstowe, powiadomienie) trafiają do już działającej.

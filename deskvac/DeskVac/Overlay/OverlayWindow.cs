@@ -119,7 +119,7 @@ public sealed class DockWidget : PixelWindow
         View = new SceneView(stage) { Origin = boundsPx.TopLeft };
         Content = View;
         Cursor = System.Windows.Input.Cursors.Hand;
-        ToolTip = "DeskVac – kliknij, aby otworzyć panel";
+        ToolTip = "DeskVac\nKliknij – panel\nKliknij 3× – sprzątaj pulpit\nPrawy przycisk – menu";
     }
 
     public new void MoveTo(Rect boundsPx)

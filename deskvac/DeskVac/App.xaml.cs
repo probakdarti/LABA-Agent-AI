@@ -63,6 +63,7 @@ public partial class App : Application
         MainWindow = Panel;
         Controller.Panel = Panel;
         Controller.WidgetClicked += TogglePanel;
+        Controller.WidgetTripleClicked += QuickClean;
         Controller.WidgetMenuRequested += ShowMenu;
         Controller.Finished += OnCleaningFinished;
 
@@ -208,6 +209,21 @@ public partial class App : Application
             default:
                 Panel.ShowPanel();
                 break;
+        }
+    }
+
+    /// <summary>Szybki start (3× klik w robota): bez otwierania panelu.</summary>
+    private void QuickClean()
+    {
+        if (Controller.IsRunning) return;
+        try
+        {
+            if (Controller.Start(background: false) == 0)
+                Controller.SayFromDock(CleaningController.CleanDesktopMessage, sound: Settings.PlaySounds);
+        }
+        catch (Exception ex)
+        {
+            Notifications.Info("DeskVac – nie udało się ruszyć", ex.Message);
         }
     }
 

@@ -82,6 +82,9 @@ public sealed class Stage
         _bubbleDuration = seconds;
     }
 
+    /// <summary>Obszar, w którym chmurka musi się zmieścić (okno widżetu przy stacji). Null = cały monitor.</summary>
+    public Rect? BubbleArea { get; set; }
+
     public bool IsSpeaking => _bubbleText is not null && _realTime - _bubbleStart < _bubbleDuration;
 
     /// <summary>Wywoływane po każdej klatce – nakładki odświeżają wtedy obraz.</summary>
@@ -513,6 +516,11 @@ public sealed class Stage
         double pad = 14 * k, tail = 10 * k;
         double w = text.Width + pad * 2, h = text.Height + pad * 2;
         var wa = WorkAreaAt(Position);
+        if (BubbleArea is { } area)
+        {
+            area.Intersect(wa);
+            if (!area.IsEmpty) wa = area;
+        }
         double x = Math.Clamp(Position.X - w / 2, wa.Left + 6 * k, wa.Right - w - 6 * k);
         double y = Math.Max(wa.Top + 6 * k, Position.Y - R - tail - h - 6 * k);
         var box = new Rect(x, y, w, h);

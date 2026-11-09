@@ -82,6 +82,8 @@ public sealed class CleaningController : IDisposable
 
     public event Action? Finished;
     public event Action? WidgetClicked;
+    /// <summary>Potrójne kliknięcie w robota – szybki start sprzątania.</summary>
+    public event Action? WidgetTripleClicked;
     public event Action? WidgetMenuRequested;
 
     // ------------------------------------------------------------------ układ ekranów, widżet
@@ -108,7 +110,7 @@ public sealed class CleaningController : IDisposable
         if (_widget is null)
         {
             _widget = new DockWidget(widgetRect, Stage);
-            _widget.MouseLeftButtonUp += (_, _) => WidgetClicked?.Invoke();
+            _widget.MouseLeftButtonDown += OnWidgetMouseDown;
             _widget.MouseRightButtonUp += (_, e) => { e.Handled = true; WidgetMenuRequested?.Invoke(); };
             _widget.SourceInitialized += (_, _) => _layer.Add(_widget.Handle);
         }
@@ -116,7 +118,40 @@ public sealed class CleaningController : IDisposable
         {
             _widget.MoveTo(widgetRect);
         }
+        // chmurka mieści się w oknie widżetu (z marginesem), inaczej byłaby ucinana
+        var bubbleArea = widgetRect;
+        bubbleArea.Inflate(-6 * s, -6 * s);
+        Stage.BubbleArea = bubbleArea;
         UpdateWidgetVisibility();
+    }
+
+    private DispatcherTimer? _clickTimer;
+
+    /// <summary>
+    /// 1 klik = panel (po krótkiej chwili, żeby odróżnić od wielokrotnego kliknięcia), 3 kliki = sprzątanie.
+    /// WPF sam liczy kliknięcia w czasie systemowego „podwójnego kliknięcia” (e.ClickCount).
+    /// </summary>
+    private void OnWidgetMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        e.Handled = true;
+        _clickTimer ??= CreateClickTimer();
+        _clickTimer.Stop();
+        if (e.ClickCount >= 3)
+        {
+            WidgetTripleClicked?.Invoke();
+            return;
+        }
+        _clickTimer.Start(); // czekamy, czy będzie trzecie kliknięcie
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetDoubleClickTime();
+
+    private DispatcherTimer CreateClickTimer()
+    {
+        var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds((int)GetDoubleClickTime() + 60) };
+        t.Tick += (_, _) => { t.Stop(); WidgetClicked?.Invoke(); };
+        return t;
     }
 
     public void UpdateWidgetVisibility()

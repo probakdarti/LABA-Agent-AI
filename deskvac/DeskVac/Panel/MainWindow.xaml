@@ -135,6 +135,6 @@
 
     <TextBlock x:Name="ProblemText" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0" Visibility="Collapsed"/>
     <TextBlock Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0"
-               Text="Nic nie jest usuwane. Robot przenosi elementy do folderu „Zebrane z pulpitu”, a każde sprzątanie można cofnąć. Ikony chronisz prawym przyciskiem → Pokaż więcej opcji → „DeskVac: Nie odkurzaj!”."/>
+               Text="Nic nie jest usuwane. Robot przenosi elementy do folderu „Zebrane z pulpitu”, a każde sprzątanie można cofnąć. Szybki start: kliknij 3× w robota przy stacji."/>
   </StackPanel>
 </Window>
