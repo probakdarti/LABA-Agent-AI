@@ -291,53 +291,6 @@ internal static class NativeMethods
     [DllImport("shell32.dll")]
     public static extern int SHQueryUserNotificationState(out int pquns);
 
-    // --- odczyt listview pulpitu z procesu Explorera -----------------------------------
-    public const uint LVM_FIRST = 0x1000;
-    public const uint LVM_GETITEMCOUNT = LVM_FIRST + 4;
-    public const uint LVM_GETITEMRECT = LVM_FIRST + 14;
-    public const uint LVM_GETITEMPOSITION = LVM_FIRST + 16;
-    public const int LVIR_ICON = 1;
-
-    public const uint PROCESS_VM_OPERATION = 0x0008;
-    public const uint PROCESS_VM_READ = 0x0010;
-    public const uint PROCESS_VM_WRITE = 0x0020;
-    public const uint MEM_COMMIT = 0x1000;
-    public const uint MEM_RESERVE = 0x2000;
-    public const uint MEM_RELEASE = 0x8000;
-    public const uint PAGE_READWRITE = 0x04;
-
-    [DllImport("user32.dll")]
-    public static extern IntPtr SendMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-
-    [DllImport("user32.dll")]
-    public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern IntPtr OpenProcess(uint access, [MarshalAs(UnmanagedType.Bool)] bool inherit, uint pid);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool CloseHandle(IntPtr h);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    public static extern IntPtr VirtualAllocEx(IntPtr hProcess, IntPtr lpAddress, UIntPtr dwSize, uint flAllocationType, uint flProtect);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool VirtualFreeEx(IntPtr hProcess, IntPtr lpAddress, UIntPtr dwSize, uint dwFreeType);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool WriteProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, ref RECT buffer, UIntPtr size, out UIntPtr written);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, out RECT buffer, UIntPtr size, out UIntPtr read);
-
-    [DllImport("kernel32.dll", SetLastError = true)]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    public static extern bool ReadProcessMemory(IntPtr hProcess, IntPtr lpBaseAddress, out POINT buffer, UIntPtr size, out UIntPtr read);
-
     public static void CoTaskMemFree(IntPtr p)
     {
         if (p != IntPtr.Zero) Marshal.FreeCoTaskMem(p);

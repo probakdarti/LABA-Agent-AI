@@ -181,21 +181,7 @@ public static class Categorizer
     /// <summary>Skrót .lnk: na co wskazuje – program, folder, dokument.</summary>
     private static string ShortcutCategory(string lnkPath)
     {
-        string? target = null;
-        try
-        {
-            var type = Type.GetTypeFromProgID("WScript.Shell");
-            if (type is not null)
-            {
-                dynamic shell = Activator.CreateInstance(type)!;
-                dynamic link = shell.CreateShortcut(lnkPath);
-                target = (string?)link.TargetPath;
-            }
-        }
-        catch (Exception)
-        {
-            // nie da się odczytać – traktujemy jak skrót programu
-        }
+        string? target = ShortcutTarget(lnkPath);
 
         // skróty instalatorów MSI („reklamowane”) nie mają ścieżki celu – to programy
         if (string.IsNullOrWhiteSpace(target)) return "Skróty programów";
@@ -204,6 +190,51 @@ public static class Categorizer
         return ext is ".exe" or ".com" or ".bat" or ".cmd" or ".msc" or ".cpl" or ".ps1" or ".vbs" or ""
             ? "Skróty programów"
             : "Skróty do dokumentów";
+    }
+
+    [System.Runtime.InteropServices.ComImport, System.Runtime.InteropServices.Guid("000214F9-0000-0000-C000-000000000046"),
+     System.Runtime.InteropServices.InterfaceType(System.Runtime.InteropServices.ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IShellLinkW
+    {
+        [System.Runtime.InteropServices.PreserveSig]
+        int GetPath([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] StringBuilder pszFile,
+            int cch, IntPtr pfd, uint fFlags);
+    }
+
+    [System.Runtime.InteropServices.ComImport, System.Runtime.InteropServices.Guid("0000010B-0000-0000-C000-000000000046"),
+     System.Runtime.InteropServices.InterfaceType(System.Runtime.InteropServices.ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IPersistFile
+    {
+        void GetClassID(out Guid pClassID);
+        [System.Runtime.InteropServices.PreserveSig] int IsDirty();
+        [System.Runtime.InteropServices.PreserveSig]
+        int Load([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string pszFileName, uint dwMode);
+    }
+
+    /// <summary>Ścieżka celu skrótu .lnk przez systemowy obiekt ShellLink (bez Windows Script Host).</summary>
+    private static string? ShortcutTarget(string lnkPath)
+    {
+        try
+        {
+            var type = Type.GetTypeFromCLSID(new Guid("00021401-0000-0000-C000-000000000046"));
+            if (type is null) return null;
+            var obj = Activator.CreateInstance(type);
+            try
+            {
+                if (((IPersistFile)obj!).Load(lnkPath, 0) != 0) return null;
+                var sb = new StringBuilder(1024);
+                return ((IShellLinkW)obj).GetPath(sb, sb.Capacity, IntPtr.Zero, 0) == 0 ? sb.ToString() : null;
+            }
+            finally
+            {
+                if (obj is not null && System.Runtime.InteropServices.Marshal.IsComObject(obj))
+                    System.Runtime.InteropServices.Marshal.ReleaseComObject(obj);
+            }
+        }
+        catch (Exception)
+        {
+            return null; // nie da się odczytać – traktujemy jak skrót programu
+        }
     }
 
     private static List<string> Tokenize(string name)

@@ -117,6 +117,7 @@ public sealed class FolderPreviewWindow : Window
         if (plan.SkippedPartial > 0) kept.Add($"niedokończone pobierania: {plan.SkippedPartial}");
         if (plan.SkippedProtected > 0) kept.Add($"chronione: {plan.SkippedProtected}");
         if (plan.SkippedFolders > 0) kept.Add($"podfoldery: {plan.SkippedFolders}");
+        if (plan.SkippedSystem > 0) kept.Add($"foldery systemowe Windows: {plan.SkippedSystem}");
         if (kept.Count > 0) head.Children.Add(Ui.Hint("Zostają na miejscu: " + string.Join(", ", kept) + "."));
         if (plan.Duplicates > 0)
             head.Children.Add(Ui.Hint($"Duplikaty (identyczna zawartość jak inny plik) trafią do „Duplikaty”: {plan.Duplicates}. Nic nie jest usuwane."));

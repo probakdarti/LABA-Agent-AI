@@ -1,5 +1,7 @@
 # DeskVac – robot-odkurzacz pulpitu Windows 11
 
+**Autor:** VERME Paweł Robak · pawelrobak@outlook.com · tel. 504 706 334
+
 Robot wyjeżdża ze stacji dokującej, skanuje pulpit lidarem, objeżdża ikony i „wsysa” skróty,
 pliki oraz foldery do folderu **„Zebrane z pulpitu”**. Potem wraca do bazy i się ładuje.
 
@@ -161,11 +163,30 @@ sprzątania, dźwięki i ich głośność, oraz listę nazw lub pełnych ścież
 `%LOCALAPPDATA%\DeskVac\settings.json`.
 
 Robot zbiera wyłącznie elementy, które naprawdę leżą w folderze pulpitu (własnym lub publicznym).
+**Nigdy nie przenosi folderów znanych Windows** (Pobrane, Dokumenty, Obrazy, Zrzuty ekranu, Z aparatu,
+Muzyka, Wideo, OneDrive… – pełna lista z menedżera folderów Windows i rejestru), także gdy zostały
+przeniesione na pulpit, ani folderów, które je zawierają. To samo dotyczy sprzątanych folderów.
 Ikony systemowe – folder użytkownika (np. „Paweł Robak” = `C:\Users\…`), OneDrive, biblioteki, Kosz,
 „Ten komputer”, Sieć, Panel sterowania – oraz sam folder „Zebrane z pulpitu” są pomijane automatycznie.
 
 Gdy nie ma czego sprzątać (start ręczny lub automatyczny), robot pokazuje nad stacją chmurkę
 „Twój Pulpit jest czysty! Nie mam nic do roboty! Gratulacje! 🙂”.
+
+## Antywirusy i podpis cyfrowy
+
+DeskVac nie zagląda do pamięci innych procesów (pozycje ikon czyta przez UI Automation – interfejs
+ułatwień dostępu), nie używa Windows Script Host, nie rozpakowuje bibliotek do `%TEMP%` i ma pełne dane
+wydawcy w pliku. Mimo to **niepodpisany** program od nowego wydawcy może zostać zablokowany przez
+heurystyki (np. Norton 360). Rozwiązania:
+
+1. **Zgłoszenie fałszywego alarmu** – bezpłatne, zwykle 1–3 dni robocze:
+   Norton: <https://submit.norton.com/> („False positive”), Microsoft Defender:
+   <https://www.microsoft.com/wdsi/filesubmission>. Po każdej nowej wersji najlepiej zgłosić ponownie.
+2. **Podpis cyfrowy (certyfikat Code Signing)** – rozwiązanie docelowe. Workflow podpisuje `DeskVac.exe`
+   i `DeskVac-Setup.exe` automatycznie, gdy w repozytorium są sekrety `SIGNING_PFX_BASE64` (plik .pfx
+   zakodowany Base64) i `SIGNING_PFX_PASSWORD`. Uwaga: wielu wystawców wydaje dziś certyfikaty tylko na
+   tokenie sprzętowym/w chmurze (bez pliku .pfx) – wtedy krok podpisu trzeba dostosować do ich narzędzia.
+3. **Wyjątek w antywirusie** na własnym komputerze (np. Norton → Ustawienia → Antywirus → Wykluczenia).
 
 ## Znane ograniczenia
 

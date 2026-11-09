@@ -56,6 +56,8 @@ public partial class SettingsWindow : Window
         CloseToTrayBox.IsChecked = _settings.CloseToTray;
         ShowRobotBox.IsChecked = _settings.ShowRobotOnDesktop;
         QuickAllBox.IsChecked = _settings.QuickCleanIncludesFolders;
+        AboutVersion.Text = $"{AppInfo.Product} {AppInfo.Version} – robot-odkurzacz pulpitu i folderów Windows";
+        AboutCopyright.Text = $"{AppInfo.Copyright}. Wszelkie prawa zastrzeżone.";
         RenderFolders();
 
         RemindStartupBox.IsChecked = _settings.RemindOnStartup;
@@ -300,6 +302,16 @@ public partial class SettingsWindow : Window
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => Close();
+
+    private void OnLink(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true }); }
+        catch (Exception) { /* brak programu pocztowego */ }
+        e.Handled = true;
+    }
+
+    /// <summary>Przewija do sekcji „O programie”.</summary>
+    public void ShowAbout() => AboutVersion.BringIntoView();
 
     // ------------------------------------------------------------------ sprzątane foldery (zmiany od razu)
 

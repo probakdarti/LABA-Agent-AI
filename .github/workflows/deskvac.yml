@@ -8,7 +8,9 @@ on:
   workflow_dispatch:
 
 env:
-  DESKVAC_VERSION: "1.0.${{ github.run_number }}"
+  DESKVAC_VERSION: "1.1.${{ github.run_number }}"
+  # podpis cyfrowy włącza się sam, gdy w Settings → Secrets są SIGNING_PFX_BASE64 i SIGNING_PFX_PASSWORD
+  HAS_CERT: ${{ secrets.SIGNING_PFX_BASE64 != '' }}
 
 jobs:
   build:
@@ -20,15 +22,27 @@ jobs:
         with:
           dotnet-version: "8.0.x"
 
-      - name: Publish (jeden plik .exe, bez instalowania .NET)
+      # Aplikacja jako zwykły folder (nie „samorozpakowujący się” jeden plik, bez kompresji) –
+      # pakiety antywirusowe znacznie rzadziej biorą takie programy za podejrzane.
+      - name: Publish
         run: >
           dotnet publish deskvac/DeskVac/DeskVac.csproj
           -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:EnableCompressionInSingleFile=true
+          -p:PublishSingleFile=false
           -p:Version=${{ env.DESKVAC_VERSION }}
-          -o out
+          -o out/app
+
+      - name: Podpis cyfrowy aplikacji (opcjonalnie)
+        if: env.HAS_CERT == 'true'
+        shell: pwsh
+        env:
+          PFX_B64: ${{ secrets.SIGNING_PFX_BASE64 }}
+          PFX_PASS: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: |
+          [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\cert.pfx", [Convert]::FromBase64String($env:PFX_B64))
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe | Where-Object FullName -match '\\x64\\' | Select-Object -First 1
+          & $signtool.FullName sign /f "$env:RUNNER_TEMP\cert.pfx" /p $env:PFX_PASS /fd sha256 /tr http://timestamp.digicert.com /td sha256 /d "DeskVac" out\app\DeskVac.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Instalator (Inno Setup)
         shell: pwsh
@@ -40,6 +54,16 @@ jobs:
           & $iscc "/DAppVersion=$env:DESKVAC_VERSION" deskvac\installer\DeskVac.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Podpis cyfrowy instalatora (opcjonalnie)
+        if: env.HAS_CERT == 'true'
+        shell: pwsh
+        env:
+          PFX_PASS: ${{ secrets.SIGNING_PFX_PASSWORD }}
+        run: |
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Recurse -Filter signtool.exe | Where-Object FullName -match '\\x64\\' | Select-Object -First 1
+          & $signtool.FullName sign /f "$env:RUNNER_TEMP\cert.pfx" /p $env:PFX_PASS /fd sha256 /tr http://timestamp.digicert.com /td sha256 /d "DeskVac – instalator" out\DeskVac-Setup.exe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Instalator DeskVac-Setup.exe
         uses: actions/upload-artifact@v4
         with:
@@ -47,9 +71,9 @@ jobs:
           path: out/DeskVac-Setup.exe
           if-no-files-found: error
 
-      - name: Wersja przenośna DeskVac.exe
+      - name: Wersja przenośna (folder)
         uses: actions/upload-artifact@v4
         with:
           name: DeskVac-portable-win-x64
-          path: out/DeskVac.exe
+          path: out/app/
           if-no-files-found: error

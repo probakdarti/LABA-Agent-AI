@@ -131,25 +131,32 @@ public sealed class DesktopView
         return exactRects ? AttachExactRects(result) : result;
     }
 
-    /// <summary>Uzupełnia ikony o dokładne prostokąty z listview Explorera (dopasowanie po pozycji).</summary>
+    /// <summary>
+    /// Uzupełnia ikony o prostokąty z UI Automation. Dopasowanie: ta sama nazwa i najbliżej pozycji z IFolderView
+    /// (dwie ikony mogą mieć tę samą nazwę, np. „Raport.lnk” i „Raport.url”).
+    /// </summary>
     private List<RawDesktopIcon> AttachExactRects(List<RawDesktopIcon> icons)
     {
-        var map = ListViewReader.ReadIconRects(_listView);
-        if (map is null || map.Count == 0) return icons;
+        var uia = DesktopUia.ReadItems(_listView);
+        if (uia.Count == 0) return icons;
         var origin = ListOriginOnScreen;
+        var used = new HashSet<int>();
 
         return icons.Select(ic =>
         {
-            if (!map.TryGetValue((ic.Position.X, ic.Position.Y), out var r))
+            var guess = new Point(origin.X + ic.Position.X, origin.Y + ic.Position.Y);
+            int best = -1;
+            double bestDist = double.MaxValue;
+            for (int i = 0; i < uia.Count; i++)
             {
-                // tolerancja kilku pikseli, gdyby obie strony zaokrąglały inaczej
-                var near = map.Where(kv => Math.Abs(kv.Key.X - ic.Position.X) <= 6 && Math.Abs(kv.Key.Y - ic.Position.Y) <= 6)
-                              .Select(kv => (RECT?)kv.Value).FirstOrDefault();
-                if (near is null) return ic;
-                r = near.Value;
+                if (used.Contains(i) || !string.Equals(uia[i].Name, ic.Name, StringComparison.CurrentCultureIgnoreCase)) continue;
+                var b = uia[i].Bounds;
+                double d = Math.Abs(b.X - guess.X) + Math.Abs(b.Y - guess.Y);
+                if (d < bestDist) { bestDist = d; best = i; }
             }
-            if (r.Right <= r.Left || r.Bottom <= r.Top) return ic;
-            return ic with { IconRect = new Rect(origin.X + r.Left, origin.Y + r.Top, r.Right - r.Left, r.Bottom - r.Top) };
+            if (best < 0) return ic;
+            used.Add(best);
+            return ic with { IconRect = uia[best].Bounds };
         }).ToList();
     }
 

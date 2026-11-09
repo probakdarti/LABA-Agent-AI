@@ -13,10 +13,16 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>DeskVac</AssemblyName>
     <RootNamespace>DeskVac</RootNamespace>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <ApplicationIcon>Assets\DeskVac.ico</ApplicationIcon>
     <Product>DeskVac</Product>
-    <Description>Robot-odkurzacz, który sprząta pulpit Windows do folderu.</Description>
+    <AssemblyTitle>DeskVac – robot-odkurzacz pulpitu</AssemblyTitle>
+    <Description>Robot-odkurzacz, który porządkuje pulpit i foldery Windows.</Description>
+    <Company>VERME Paweł Robak</Company>
+    <Authors>VERME Paweł Robak</Authors>
+    <Copyright>© 2026 VERME Paweł Robak · pawelrobak@outlook.com · tel. 504 706 334</Copyright>
+    <NeutralLanguage>pl-PL</NeutralLanguage>
+    <Deterministic>true</Deterministic>
     <SatelliteResourceLanguages>pl;en</SatelliteResourceLanguages>
   </PropertyGroup>
 

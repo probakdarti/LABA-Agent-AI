@@ -536,6 +536,7 @@ public sealed class CleaningController : IDisposable
     {
         var view = DesktopView.Open();
         var collector = new Collector(_settings);
+        _system = SystemFolders.Snapshot();
         int n = 0;
         foreach (var raw in view.ReadIcons(withIcons: false, exactRects: false))
             if (IsCandidate(raw, collector, out _) && !_settings.IsExcluded(raw.Name, raw.FileSystemPath!)) n++;
@@ -564,11 +565,17 @@ public sealed class CleaningController : IDisposable
             string.Equals(Path.TrimEndingDirectorySeparator(d), Path.TrimEndingDirectorySeparator(parent), StringComparison.OrdinalIgnoreCase));
     }
 
+    private SystemFolders? _system;
+
+    /// <summary>Folder znany Windows (np. Pobrane przeniesione na pulpit) albo zawierający taki folder – nie ruszamy.</summary>
+    private bool IsSystemFolder(string path) => (_system ??= SystemFolders.Snapshot()).IsProtected(path);
+
     private bool IsCandidate(RawDesktopIcon raw, Collector collector, out ItemKind kind)
     {
         kind = ItemKind.File;
         if (!LiesOnDesktop(raw.FileSystemPath)) return false;          // Kosz, Ten komputer, folder użytkownika itp.
         if (collector.IsCollectionFolder(raw.FileSystemPath!)) return false;
+        if (IsSystemFolder(raw.FileSystemPath!)) return false;
         kind = DesktopItem.Classify(raw.FileSystemPath);
         return _settings.Accepts(kind);
     }
@@ -580,10 +587,12 @@ public sealed class CleaningController : IDisposable
         var spacing = view.Spacing;
         int iconSize = DesktopIconSize();
 
+        _system = SystemFolders.Snapshot();
         var list = new List<DesktopItem>();
         foreach (var raw in view.ReadIcons(withIcons: true, exactRects: exact))
         {
             if (!LiesOnDesktop(raw.FileSystemPath) || collector.IsCollectionFolder(raw.FileSystemPath!)) continue;
+            if (IsSystemFolder(raw.FileSystemPath)) continue;              // Pobrane/Dokumenty/OneDrive… przeniesione na pulpit
             var kind = DesktopItem.Classify(raw.FileSystemPath);
             bool isProtected = _settings.IsExcluded(raw.Name, raw.FileSystemPath);
             if (!isProtected && !_settings.Accepts(kind)) continue;
@@ -637,11 +646,12 @@ public sealed class CleaningController : IDisposable
         Rect r;
         if (raw.IconRect is { } exact)
         {
-            // LVIR_ICON to „komórka” ikony (szersza niż obrazek) – bierzemy wyśrodkowany kwadrat w rozmiarze ikony
-            var c = new Point(exact.X + exact.Width / 2, exact.Y + exact.Height / 2);
-            double scale = _monitors.Count == 0 ? 1 : Monitors.At(_monitors, c).Scale;
+            // UI Automation zwraca cały element (ikona + podpis pod nią): ikona to kwadrat u góry, wyśrodkowany w poziomie
+            var top = new Point(exact.X + exact.Width / 2, exact.Y);
+            double scale = _monitors.Count == 0 ? 1 : Monitors.At(_monitors, top).Scale;
             double side = Math.Min(iconSize * scale, Math.Min(exact.Width, exact.Height));
-            r = new Rect(c.X - side / 2, c.Y - side / 2, side, side);
+            double pad = Math.Max(0, Math.Min(4 * scale, exact.Height - side));
+            r = new Rect(top.X - side / 2, exact.Y + pad, side, side);
         }
         else
         {
@@ -724,13 +734,27 @@ public sealed class CleaningController : IDisposable
 
     // ------------------------------------------------------------------ okna
 
+    [System.Runtime.InteropServices.DllImport("user32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern IntPtr FindWindow(string? cls, string? name);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr PostMessage(IntPtr hwnd, uint msg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>Polecenie paska zadań: 419 = minimalizuj wszystkie okna, 416 = cofnij.</summary>
+    private static bool TrayCommand(int command)
+    {
+        var tray = FindWindow("Shell_TrayWnd", null);
+        if (tray == IntPtr.Zero) return false;
+        PostMessage(tray, 0x0111 /* WM_COMMAND */, (IntPtr)command, IntPtr.Zero);
+        return true;
+    }
+
     private void MinimizeAllWindows()
     {
         try
         {
-            dynamic? shell = Activator.CreateInstance(Type.GetTypeFromProgID("Shell.Application")!);
-            shell?.MinimizeAll();
-            _minimizedWindows = true;
+            // to samo co „Pokaż pulpit / Minimalizuj wszystko” z paska zadań (bez skryptowego obiektu Shell.Application)
+            _minimizedWindows = TrayCommand(419);
 
             // panel (jeśli był otwarty) ma zostać na wierzchu
             if (Panel is { IsVisible: true } panel)
@@ -747,8 +771,7 @@ public sealed class CleaningController : IDisposable
         _minimizedWindows = false;
         try
         {
-            dynamic? shell = Activator.CreateInstance(Type.GetTypeFromProgID("Shell.Application")!);
-            shell?.UndoMinimizeALL();
+            TrayCommand(416); // „Cofnij minimalizację wszystkich”
         }
         catch (Exception)
         {

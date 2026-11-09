@@ -1,4 +1,4 @@
-; Instalator DeskVac (Inno Setup 6). Budowany w GitHub Actions:
+﻿; Instalator DeskVac (Inno Setup 6). Budowany w GitHub Actions:
 ;   ISCC.exe /DAppVersion=0.2.0 deskvac\installer\DeskVac.iss
 ; Instaluje dla bieżącego użytkownika (bez uprawnień administratora).
 
@@ -11,8 +11,17 @@ AppId={{6F3C2A51-8B7E-4C9D-9A41-2B5E7D0C1F88}
 AppName=DeskVac
 AppVerName=DeskVac {#AppVersion}
 AppVersion={#AppVersion}
-AppPublisher=DeskVac
+AppPublisher=VERME Paweł Robak
+AppPublisherURL=mailto:pawelrobak@outlook.com
+AppSupportURL=mailto:pawelrobak@outlook.com
+AppContact=pawelrobak@outlook.com
+AppSupportPhone=504 706 334
+AppCopyright=© 2026 VERME Paweł Robak
 VersionInfoVersion={#AppVersion}
+VersionInfoCompany=VERME Paweł Robak
+VersionInfoCopyright=© 2026 VERME Paweł Robak
+VersionInfoDescription=Instalator DeskVac – robot-odkurzacz pulpitu
+VersionInfoProductName=DeskVac
 DefaultDirName={localappdata}\Programs\DeskVac
 DisableProgramGroupPage=yes
 DisableDirPage=auto
@@ -36,8 +45,12 @@ Name: "pl"; MessagesFile: "compiler:Languages\Polish.isl"
 [Tasks]
 Name: "autostart"; Description: "Uruchamiaj DeskVac razem z Windows (robot czeka przy stacji, przypomnienia o sprzątaniu)"; GroupDescription: "Dodatkowo:"
 
+[Messages]
+pl.WelcomeLabel2=Ten kreator zainstaluje [name/ver] na Twoim komputerze.%n%nDeskVac to robot-odkurzacz, który porządkuje pulpit i wskazane foldery (np. Pobrane). Nic nie usuwa – każde sprzątanie można cofnąć.%n%nAutor: VERME Paweł Robak%ne-mail: pawelrobak@outlook.com%ntel. 504 706 334
+
 [Files]
-Source: "..\..\out\DeskVac.exe"; DestDir: "{app}"; Flags: ignoreversion
+; cała aplikacja w folderze (bez rozpakowywania bibliotek do %TEMP% przy starcie – mniej podejrzane dla antywirusów)
+Source: "..\..\out\app\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{userprograms}\DeskVac"; Filename: "{app}\DeskVac.exe"; Comment: "Robot-odkurzacz pulpitu"

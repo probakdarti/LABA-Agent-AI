@@ -475,6 +475,12 @@ public partial class App : Application
         else Panel.ShowPanel();
     }
 
+    private void ShowAbout()
+    {
+        ShowSettings();
+        _settingsWindow?.Dispatcher.BeginInvoke(() => _settingsWindow?.ShowAbout(), System.Windows.Threading.DispatcherPriority.Loaded);
+    }
+
     public void ShowSettings()
     {
         try
@@ -541,6 +547,7 @@ public partial class App : Application
         Item("Otwórz folder „Zebrane z pulpitu”", Panel.OpenCollectionFolder);
         Item("↶  Cofnij ostatnie sprzątanie", () => Notifications.Info("DeskVac", Controller.UndoLast()), !running);
         menu.Items.Add(new Separator());
+        Item($"O programie (autor: {AppInfo.Author})…", ShowAbout);
         Item("Zakończ DeskVac", ExitApp);
         menu.IsOpen = true;
     }

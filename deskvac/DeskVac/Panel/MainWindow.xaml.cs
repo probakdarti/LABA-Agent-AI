@@ -48,6 +48,8 @@ public partial class MainWindow : Window
         _ui.Tick += (_, _) => RefreshUi();
 
         RefreshTargets();
+        AuthorText.Text = $"{AppInfo.Product} {AppInfo.Version} · {AppInfo.Copyright}";
+        Title = $"DeskVac – odkurzacz pulpitu · {AppInfo.Author}";
         TargetBox.SelectionChanged += (_, _) =>
         {
             if (_loading || TargetBox.SelectedItem is not ComboBoxItem { Tag: string t }) return;

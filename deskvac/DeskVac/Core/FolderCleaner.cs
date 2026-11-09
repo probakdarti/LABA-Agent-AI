@@ -13,6 +13,7 @@ public sealed class FolderPlan
     public int SkippedPartial { get; set; }
     public int SkippedProtected { get; set; }
     public int SkippedFolders { get; set; }
+    public int SkippedSystem { get; set; }
     public string? Error { get; set; }
 
     public int Duplicates => Moves.Count(m => m.IsDuplicate);
@@ -49,6 +50,7 @@ public static class FolderCleaner
 
         var root = Path.TrimEndingDirectorySeparator(job.Path);
         var reserved = Categorizer.AllCategoryFolders();
+        var system = SystemFolders.Snapshot();
         var minAge = TimeSpan.FromHours(Math.Max(0, job.MinAgeHours));
         var now = DateTime.Now;
 
@@ -64,6 +66,12 @@ public static class FolderCleaner
                 // nasze foldery kategorii (PDF, Word, Foldery, Duplikaty…) zostają na miejscu
                 if (reserved.Contains(info.Name)) continue;
                 if ((info.Attributes & FileAttributes.ReparsePoint) != 0) continue; // dowiązania, OneDrive-owe skróty folderów
+                // foldery znane Windows (np. Obrazy\Zrzuty ekranu, Z aparatu) i zawierające je – nigdy
+                if (system.IsProtected(info.FullName))
+                {
+                    plan.SkippedSystem++;
+                    continue;
+                }
                 if (!job.MoveLooseFolders)
                 {
                     plan.SkippedFolders++;
