@@ -1,0 +1,109 @@
+<Window x:Class="DeskVac.Panel.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:DeskVac.Panel"
+        Title="DeskVac – odkurzacz pulpitu"
+        Width="400" SizeToContent="Height" ResizeMode="CanMinimize"
+        WindowStartupLocation="Manual"
+        Background="{StaticResource Bg}" Foreground="{StaticResource Text}"
+        FontFamily="Segoe UI Variable Display, Segoe UI" UseLayoutRounding="True">
+  <StackPanel Margin="18,16,18,18">
+
+    <!-- nagłówek -->
+    <DockPanel Margin="0,0,0,14">
+      <Grid Width="38" Height="38" Margin="0,0,12,0" DockPanel.Dock="Left">
+        <Ellipse Fill="#1F242B" Stroke="{StaticResource Accent}" StrokeThickness="2"/>
+        <Ellipse Width="13" Height="13" Fill="#F2F4F6" Margin="0,0,6,0"/>
+      </Grid>
+      <StackPanel VerticalAlignment="Center">
+        <TextBlock Text="DeskVac" FontSize="20" FontWeight="Bold"/>
+        <TextBlock x:Name="StatusText" Text="W stacji dokującej" Foreground="{StaticResource Muted}" FontSize="12"/>
+      </StackPanel>
+    </DockPanel>
+
+    <!-- mapa -->
+    <Border CornerRadius="12" BorderBrush="{StaticResource CardBorder}" BorderThickness="1" Height="190">
+      <local:MiniMap x:Name="Map"/>
+    </Border>
+
+    <!-- bateria -->
+    <Grid Margin="0,14,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
+      <TextBlock Text="Bateria" Style="{StaticResource Caption}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+      <Border x:Name="BatteryTrack" Grid.Column="1" Height="6" CornerRadius="3" Background="#262C34" VerticalAlignment="Center">
+        <Border x:Name="BatteryFill" HorizontalAlignment="Left" CornerRadius="3" Background="{StaticResource Accent}" Width="0"/>
+      </Border>
+      <TextBlock x:Name="BatteryText" Grid.Column="2" Text="100%" Margin="10,0,0,0" FontSize="12" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+    </Grid>
+
+    <!-- statystyki -->
+    <Grid Margin="0,12,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition/>
+        <ColumnDefinition Width="12"/>
+        <ColumnDefinition/>
+      </Grid.ColumnDefinitions>
+      <Border Background="{StaticResource Card}" CornerRadius="12" Padding="14,10" BorderBrush="{StaticResource CardBorder}" BorderThickness="1">
+        <StackPanel>
+          <TextBlock x:Name="CountText" Text="0" FontSize="24" FontWeight="Bold"/>
+          <TextBlock x:Name="CountSub" Text="zebranych elementów" Foreground="{StaticResource Muted}" FontSize="12"/>
+        </StackPanel>
+      </Border>
+      <Border Grid.Column="2" Background="{StaticResource Card}" CornerRadius="12" Padding="14,10" BorderBrush="{StaticResource CardBorder}" BorderThickness="1">
+        <StackPanel>
+          <TextBlock x:Name="SizeText" Text="0 B" FontSize="24" FontWeight="Bold"/>
+          <TextBlock Text="przeniesione do folderu" Foreground="{StaticResource Muted}" FontSize="12"/>
+        </StackPanel>
+      </Border>
+    </Grid>
+
+    <!-- sterowanie -->
+    <Grid Margin="0,14,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="2*"/>
+        <ColumnDefinition Width="8"/>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="8"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <Button x:Name="StartButton" Content="▶  Sprzątaj pulpit" Style="{StaticResource AccentButton}" Click="OnStart"/>
+      <Button x:Name="PauseButton" Grid.Column="2" Content="Pauza" Style="{StaticResource PillButton}" Click="OnPause" IsEnabled="False"/>
+      <Button x:Name="StopButton" Grid.Column="4" Content="Do bazy" Style="{StaticResource PillButton}" Click="OnStop" IsEnabled="False"/>
+    </Grid>
+
+    <!-- ustawienia -->
+    <Border Background="{StaticResource Card}" CornerRadius="12" Padding="14,12" Margin="0,14,0,0" BorderBrush="{StaticResource CardBorder}" BorderThickness="1">
+      <StackPanel>
+        <TextBlock Text="CO ZBIERAĆ" Style="{StaticResource Caption}"/>
+        <WrapPanel>
+          <CheckBox x:Name="ShortcutsBox" Content="Skróty"/>
+          <CheckBox x:Name="FilesBox" Content="Pliki"/>
+          <CheckBox x:Name="FoldersBox" Content="Foldery"/>
+        </WrapPanel>
+        <CheckBox x:Name="MinimizeBox" Content="Zminimalizuj okna na czas sprzątania" Margin="0,4,0,10"/>
+        <TextBlock Text="NIE RUSZAJ (nazwy oddzielone przecinkami)" Style="{StaticResource Caption}"/>
+        <TextBox x:Name="ExclusionsBox" Background="#10141A" Foreground="{StaticResource Text}" BorderBrush="#2F3640"
+                 CaretBrush="{StaticResource Accent}" Padding="8,6" FontSize="13"/>
+      </StackPanel>
+    </Border>
+
+    <!-- dół -->
+    <Grid Margin="0,14,0,0">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition/>
+        <ColumnDefinition Width="8"/>
+        <ColumnDefinition/>
+      </Grid.ColumnDefinitions>
+      <Button x:Name="UndoButton" Content="↶  Cofnij ostatnie" Style="{StaticResource PillButton}" Click="OnUndo"/>
+      <Button Grid.Column="2" Content="Otwórz folder" Style="{StaticResource PillButton}" Click="OnOpenFolder"/>
+    </Grid>
+
+    <TextBlock x:Name="ProblemText" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0" Visibility="Collapsed"/>
+    <TextBlock Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0"
+               Text="Nic nie jest usuwane. Robot przenosi elementy do folderu „Zebrane z pulpitu” na pulpicie, a każde sprzątanie można cofnąć."/>
+  </StackPanel>
+</Window>

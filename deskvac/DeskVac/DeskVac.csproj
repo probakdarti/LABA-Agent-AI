@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- pozwala kompilować projekt także na Linux/macOS (CI, kontrola składni) -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AssemblyName>DeskVac</AssemblyName>
+    <RootNamespace>DeskVac</RootNamespace>
+    <Version>0.1.0</Version>
+    <Product>DeskVac</Product>
+    <Description>Robot-odkurzacz, który sprząta pulpit Windows do folderu.</Description>
+    <SatelliteResourceLanguages>pl;en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+</Project>
