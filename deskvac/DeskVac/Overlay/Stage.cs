@@ -5,7 +5,7 @@ using DeskVac.Core;
 
 namespace DeskVac.Overlay;
 
-public enum RobotPhase { Docked, Undocking, Scanning, Cleaning, Returning, Docking, Emptying, Done }
+public enum RobotPhase { Docked, Undocking, Scanning, Cleaning, FolderApproach, FolderWork, Returning, Docking, Emptying, Done }
 
 /// <summary>
 /// Symulacja robota + rysowanie całej sceny. Współrzędne „świata” to FIZYCZNE piksele ekranu
@@ -124,8 +124,137 @@ public sealed class Stage
         }
     }
 
+    /// <summary>
+    /// Po skończonej pracy (pulpit posprzątany / folder skończony) robot pyta, czy jest coś jeszcze.
+    /// Kontroler może wtedy zacząć kolejny folder (BeginFolderRun) i zwrócić true; inaczej robot wraca do bazy.
+    /// </summary>
+    public Func<bool>? NextWork { get; set; }
+
+    private bool _skipScan;
+
+    /// <summary>Wyjazd bez skanowania pulpitu – od razu do folderów (NextWork).</summary>
+    public void StartFoldersOnly()
+    {
+        Start(Array.Empty<DesktopItem>());
+        _skipScan = true;
+    }
+
+    private void FinishWork()
+    {
+        if (StopRequested || !(NextWork?.Invoke() ?? false)) SetPhase(RobotPhase.Returning);
+    }
+
+    // ------------------------------------------------------------------ sprzątanie folderu (animacja symboliczna)
+
+    private readonly Queue<DesktopItem> _folderQueue = new();
+    private Point _portal;
+    private string _portalTitle = "";
+    private int _portalDone, _portalTotal = -1;
+    private bool _folderInputDone;
+    private double _emitTimer;
+
+    public string PortalTitle => _portalTitle;
+
+    /// <summary>Robot jedzie do ikony folderu przy stacji; pliki będą z niej „wyskakiwać”.</summary>
+    public void BeginFolderRun(string title)
+    {
+        _portalTitle = title;
+        _portalDone = 0;
+        _portalTotal = -1;
+        _folderInputDone = false;
+        _folderQueue.Clear();
+        double k = ScaleAt(DockTop);
+        var wa = WorkAreaAt(DockTop);
+        _portal = new Point(Math.Max(wa.Left + 80 * k, DockTop.X - 300 * k), DockTop.Y - 110 * k);
+        SetPhase(RobotPhase.FolderApproach);
+    }
+
+    /// <summary>Ile plików obejmie folder (znane po przygotowaniu planu).</summary>
+    public void SetFolderTotal(int total) => _portalTotal = total;
+
+    /// <summary>Kolejny przeniesiony plik – do animacji (przy setkach plików animujemy część, licznik pokazuje wszystko).</summary>
+    public void EmitFolderItem(DesktopItem item)
+    {
+        _portalDone++;
+        if (_folderQueue.Count < 40) _folderQueue.Enqueue(item);
+    }
+
+    public void EndFolderInput() => _folderInputDone = true;
+
+    /// <summary>Czy animacja przyjmie kolejny plik (żeby nie liczyć ikon dla plików, których i tak nie pokażemy).</summary>
+    public bool FolderQueueHasRoom => _folderQueue.Count < 40;
+
+    private void UpdateFolderWork(double dt)
+    {
+        if (dt <= 0) return;
+        double k = ScaleAt(_portal);
+        // robot stoi przodem do folderu
+        var toPortal = _portal - Position;
+        Heading += Math.Clamp(NormalizeAngle(Math.Atan2(toPortal.Y, toPortal.X) - Heading), -TurnRate * dt, TurnRate * dt);
+
+        _emitTimer -= dt;
+        if (_folderQueue.Count > 0 && _emitTimer <= 0)
+        {
+            var it = _folderQueue.Dequeue();
+            double size = 40 * k;
+            var c = _portal + new Vector((_rng.NextDouble() - 0.5) * 30 * k, -20 * k + (_rng.NextDouble() - 0.5) * 16 * k);
+            it.IconRect = new Rect(c.X - size / 2, c.Y - size / 2, size, size);
+            it.State = ItemState.Collected;
+            _sprites.Add(new FlyingSprite(it, it.IconRect, _realTime, 0.5 + _rng.NextDouble() * 0.15, _rng.NextDouble() < 0.5 ? -1 : 1));
+            BinLevel = Math.Min(1, BinLevel + 0.02);
+            ItemCollected?.Invoke(it);
+            _emitTimer = _folderQueue.Count > 12 ? 0.07 : 0.15;
+        }
+
+        if (_folderInputDone && _folderQueue.Count == 0 && _sprites.Count == 0 && _phaseTime > 0.8)
+            FinishWork();
+    }
+
+    private void DrawPortal(DrawingContext dc)
+    {
+        if (Phase is not (RobotPhase.FolderApproach or RobotPhase.FolderWork)) return;
+        double k = ScaleAt(_portal);
+        double appear = Math.Min(1, _phaseTime / 0.4);
+        if (Phase == RobotPhase.FolderWork) appear = 1;
+        double w = 86 * k * (0.7 + 0.3 * appear), h = 64 * k * (0.7 + 0.3 * appear);
+        var body = new Rect(_portal.X - w / 2, _portal.Y - h / 2, w, h);
+
+        dc.PushOpacity(appear);
+        // poświata
+        var glow = new RadialGradientBrush(Color.FromArgb(90, 0xFF, 0xC8, 0x4A), Color.FromArgb(0, 0xFF, 0xC8, 0x4A));
+        dc.DrawEllipse(glow, null, _portal, w * 0.95, h * 1.1);
+        // folder: zakładka + korpus + przód
+        var back = new SolidColorBrush(Color.FromRgb(0xE0, 0xA1, 0x2E));
+        var front = new LinearGradientBrush(Color.FromRgb(0xFF, 0xD5, 0x6A), Color.FromRgb(0xF2, 0xB1, 0x3A), 90);
+        dc.DrawRoundedRectangle(back, null, new Rect(body.Left, body.Top - 8 * k, w * 0.42, 14 * k), 4 * k, 4 * k);
+        dc.DrawRoundedRectangle(back, null, body, 7 * k, 7 * k);
+        // „kartki” wystające z folderu, gdy pracuje
+        if (Phase == RobotPhase.FolderWork)
+        {
+            double wob = Math.Sin(_realTime * 9) * 2 * k;
+            dc.DrawRoundedRectangle(Brushes.WhiteSmoke, null, new Rect(body.Left + w * 0.18, body.Top - 6 * k + wob, w * 0.6, h * 0.5), 3 * k, 3 * k);
+        }
+        dc.DrawRoundedRectangle(front, null, new Rect(body.Left, body.Top + h * 0.22, w, h * 0.78), 7 * k, 7 * k);
+
+        // podpis: nazwa folderu i licznik
+        string counter = _portalTotal < 0 ? "liczę pliki…" : $"{_portalDone} / {_portalTotal}";
+        var title = new FormattedText(_portalTitle, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal), 13 * k, Brushes.White, k);
+        var sub = new FormattedText(counter, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new Typeface("Segoe UI"), 11 * k, new SolidColorBrush(Color.FromRgb(0xDD, 0xE3, 0xE8)), k);
+        double ty = body.Bottom + 6 * k;
+        var shadow = new SolidColorBrush(Color.FromArgb(170, 0, 0, 0));
+        dc.DrawGeometry(shadow, null, title.BuildGeometry(new Point(_portal.X - title.Width / 2 + 1, ty + 1)));
+        dc.DrawText(title, new Point(_portal.X - title.Width / 2, ty));
+        dc.DrawGeometry(shadow, null, sub.BuildGeometry(new Point(_portal.X - sub.Width / 2 + 1, ty + title.Height + 1)));
+        dc.DrawText(sub, new Point(_portal.X - sub.Width / 2, ty + title.Height));
+        dc.Pop();
+    }
+
     public void Start(IReadOnlyList<DesktopItem> items)
     {
+        _skipScan = false;
+        _folderQueue.Clear();
         Items = items;
         _labels.Clear();
         _sprites.Clear();
@@ -148,8 +277,11 @@ public sealed class Stage
     {
         StopRequested = true;
         Paused = false;
-        if (Phase is RobotPhase.Undocking or RobotPhase.Scanning or RobotPhase.Cleaning)
+        if (Phase is RobotPhase.Undocking or RobotPhase.Scanning or RobotPhase.Cleaning or RobotPhase.FolderApproach or RobotPhase.FolderWork)
+        {
+            _folderQueue.Clear();
             SetPhase(RobotPhase.Returning);
+        }
     }
 
     private void SetPhase(RobotPhase p)
@@ -216,7 +348,8 @@ public sealed class Stage
                 if (Distance(Position, _undockTarget) < 4 * K)
                 {
                     _scanStart = Heading;
-                    SetPhase(RobotPhase.Scanning);
+                    if (_skipScan) FinishWork();
+                    else SetPhase(RobotPhase.Scanning);
                 }
                 break;
 
@@ -234,6 +367,18 @@ public sealed class Stage
 
             case RobotPhase.Cleaning:
                 UpdateCleaning(dt);
+                break;
+
+            case RobotPhase.FolderApproach:
+            {
+                var spot = _portal + new Vector(R * 3.2, 0);
+                DriveTowards(spot, dt, MaxSpeed, allowReverse: false);
+                if (Distance(Position, spot) < 5 * K) SetPhase(RobotPhase.FolderWork);
+                break;
+            }
+
+            case RobotPhase.FolderWork:
+                UpdateFolderWork(dt);
                 break;
 
             case RobotPhase.Returning:
@@ -366,7 +511,7 @@ public sealed class Stage
 
         if (Target is null)
         {
-            SetPhase(RobotPhase.Returning);
+            FinishWork();
             return;
         }
 
@@ -462,6 +607,7 @@ public sealed class Stage
             DrawTargetLock(dc, Target);
 
         DrawParticles(dc);
+        DrawPortal(dc);
         DrawSprites(dc);
 
         var led = Paused ? RobotPainter.Amber : charging ? RobotPainter.Charge : RobotPainter.Accent;

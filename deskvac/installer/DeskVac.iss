@@ -50,6 +50,10 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 Root: HKCU; Subkey: "Software\Classes\AllFilesystemObjects\shell\DeskVac.Protect"; Flags: uninsdeletekey dontcreatekey
 Root: HKCU; Subkey: "Software\Classes\AllFilesystemObjects\shell\DeskVac.NoVacuum"; Flags: uninsdeletekey dontcreatekey
 Root: HKCU; Subkey: "Software\Classes\AllFilesystemObjects\shell\DeskVac.AllowVacuum"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Classes\Directory\shell\DeskVac.CleanFolder"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Classes\Directory\Background\shell\DeskVac.CleanFolder"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Classes\Directory\shell\DeskVac.AddFolder"; Flags: uninsdeletekey dontcreatekey
+Root: HKCU; Subkey: "Software\Classes\Directory\Background\shell\DeskVac.AddFolder"; Flags: uninsdeletekey dontcreatekey
 
 [Run]
 Filename: "{app}\DeskVac.exe"; Description: "Uruchom DeskVac"; Flags: nowait postinstall skipifsilent

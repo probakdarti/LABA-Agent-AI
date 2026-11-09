@@ -76,10 +76,13 @@ public partial class App : Application
         bool atLogon = args.Contains("--tray");
         _scheduler = new Scheduler(Settings, atLogon)
         {
-            CountItems = Controller.CountCleanable,
+            CountItems = GatherReminder,
             ShowReminder = Notifications.Reminder,
             StartAutoClean = StartAutoClean,
             UserBusy = UserBusy,
+            CountFolder = j => FolderCleaner.Count(j, Settings),
+            RemindFolder = Notifications.FolderReminder,
+            AutoCleanFolder = AutoCleanFolder,
         };
         _scheduler.Start();
 
@@ -125,6 +128,12 @@ public partial class App : Application
                     break;
                 case "--tray":
                     break;
+                case "--clean-folder" when i + 1 < args.Length:
+                    CleanFolderPath(args[++i]);
+                    break;
+                case "--add-folder" when i + 1 < args.Length:
+                    AddFolderPath(args[++i]);
+                    break;
             }
         }
     }
@@ -169,7 +178,7 @@ public partial class App : Application
         if (changed.Count == 0) return;
 
         Settings.Save();
-        ShellIntegration.RegisterContextMenu(Settings.ContextMenuOnlyOnDesktop, Settings.ProtectedPaths);
+        ShellIntegration.Sync(Settings);
         _settingsWindow?.ReloadProtected();
         Panel.RefreshProtectedCount();
 
@@ -188,8 +197,8 @@ public partial class App : Application
         switch (action)
         {
             case Notifications.ActionClean:
-                Panel.ShowPanel();
-                Panel.StartCleaning();
+                // przypomnienie dotyczy pulpitu i folderów „razem z pulpitem”
+                Launch(true, Settings.FoldersWithDesktop.ToList(), fromPanel: false);
                 break;
             case Notifications.ActionSnooze:
                 _scheduler?.Snooze(TimeSpan.FromHours(1));
@@ -202,6 +211,12 @@ public partial class App : Application
                 break;
             case Notifications.ActionUndo:
                 Notifications.Info("DeskVac", Controller.UndoLast());
+                break;
+            case Notifications.ActionCleanFolder when a.TryGetValue("folder", out string cleanId):
+                StartTarget(cleanId);
+                break;
+            case Notifications.ActionPreviewFolder when a.TryGetValue("folder", out string previewId):
+                if (Settings.FindFolder(previewId) is { } pj) ShowFolderPreview(pj, startAfter: true);
                 break;
             case Notifications.ActionOpenFolder:
                 Panel.OpenCollectionFolder();
@@ -216,14 +231,202 @@ public partial class App : Application
     private void QuickClean()
     {
         if (Controller.IsRunning) return;
+        var folders = Settings.QuickCleanIncludesFolders ? Settings.FoldersWithDesktop.ToList() : new List<FolderJob>();
+        Launch(desktop: true, folders, fromPanel: false);
+    }
+
+    // ------------------------------------------------------------------ cele sprzątania: pulpit, foldery, wszystko
+
+    /// <summary>„all” = pulpit + wszystkie włączone foldery, „desktop” = sam pulpit, inaczej Id folderu.</summary>
+    public void StartTarget(string target, bool fromPanel = false)
+    {
+        if (Controller.IsRunning) return;
+        switch (target)
+        {
+            case "desktop":
+                Launch(true, new List<FolderJob>(), fromPanel);
+                break;
+            case "all":
+                Launch(true, Settings.Folders.Where(f => f.Enabled && Directory.Exists(f.Path)).ToList(), fromPanel);
+                break;
+            default:
+                if (Settings.FindFolder(target) is { } job) Launch(false, new List<FolderJob> { job }, fromPanel);
+                break;
+        }
+    }
+
+    private void Launch(bool desktop, List<FolderJob> folders, bool fromPanel)
+    {
         try
         {
-            if (Controller.Start(background: false) == 0)
-                Controller.SayFromDock(CleaningController.CleanDesktopMessage, sound: Settings.PlaySounds);
+            var confirmed = ConfirmFolders(folders, interactive: true);
+            if (!desktop && confirmed.Count == 0) return; // anulowany podgląd
+            int n = Controller.StartRun(background: false, desktop, confirmed);
+            if (n == 0)
+            {
+                string msg = desktop && confirmed.Count == 0 ? CleaningController.CleanDesktopMessage
+                    : desktop ? "Pulpit i foldery są czyste!\nNie mam nic do roboty!\nGratulacje! 🙂"
+                    : $"„{folders[0].DisplayName}” jest uporządkowany!\nNie mam nic do roboty! 🙂";
+                Controller.SayFromDock(msg, sound: Settings.PlaySounds);
+                if (fromPanel) Panel.ShowProblem("Nie ma czego sprzątać 🙂");
+            }
+            else if (fromPanel && Panel.IsVisible)
+            {
+                Panel.Topmost = true;
+            }
         }
         catch (Exception ex)
         {
-            Notifications.Info("DeskVac – nie udało się ruszyć", ex.Message);
+            if (fromPanel) Panel.ShowProblem(ex.Message);
+            else Notifications.Info("DeskVac – nie udało się ruszyć", ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Pierwsze sprzątanie folderu wymaga zatwierdzenia podglądu. Interaktywnie – pokazujemy okno podglądu;
+    /// w tle (harmonogram) – pomijamy folder i wysyłamy powiadomienie „zatwierdź podgląd”.
+    /// </summary>
+    private List<FolderJob> ConfirmFolders(IEnumerable<FolderJob> jobs, bool interactive)
+    {
+        var ok = new List<FolderJob>();
+        foreach (var job in jobs)
+        {
+            if (job.PreviewConfirmed) { ok.Add(job); continue; }
+            if (!interactive)
+            {
+                if (FolderCleaner.Count(job, Settings) > 0) Notifications.PreviewNeeded(job);
+                continue;
+            }
+            if (ShowFolderPreview(job, startAfter: false)) ok.Add(job);
+        }
+        return ok;
+    }
+
+    /// <summary>Okno podglądu. Zatwierdzenie zapamiętuje zgodę; startAfter – od razu sprząta ten folder.</summary>
+    public bool ShowFolderPreview(FolderJob job, bool startAfter)
+    {
+        FolderPlan plan;
+        var old = System.Windows.Input.Mouse.OverrideCursor;
+        System.Windows.Input.Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+        try { plan = FolderCleaner.Plan(job, Settings); }
+        finally { System.Windows.Input.Mouse.OverrideCursor = old; }
+
+        if (plan.Error is not null)
+        {
+            MessageBox.Show(plan.Error, "DeskVac – " + job.DisplayName, MessageBoxButton.OK, MessageBoxImage.Information);
+            return false;
+        }
+        if (plan.Moves.Count == 0)
+        {
+            Controller.SayFromDock($"„{job.DisplayName}” jest uporządkowany!\nNie mam nic do roboty! 🙂", sound: Settings.PlaySounds);
+            return false;
+        }
+
+        var w = new FolderPreviewWindow(plan);
+        if (Panel.IsVisible) w.Owner = Panel;
+        if (w.ShowDialog() != true) return false;
+
+        if (Settings.FindFolder(job.Id) is { } saved)
+        {
+            saved.PreviewConfirmed = true;
+            Settings.Save();
+        }
+        job.PreviewConfirmed = true;
+        if (startAfter && !Controller.IsRunning) Controller.StartRun(false, false, new List<FolderJob> { job });
+        return true;
+    }
+
+    /// <summary>Menu kontekstowe „Posprzątaj ten folder”: folder z listy albo jednorazowo (zawsze z podglądem).</summary>
+    private void CleanFolderPath(string path)
+    {
+        path = path.Trim('"');
+        if (KnownFolders.WhyForbidden(path) is { } why)
+        {
+            Notifications.Info("DeskVac – tego folderu nie sprzątam", why);
+            return;
+        }
+        if (Controller.IsRunning)
+        {
+            Notifications.Info("DeskVac", "Robot właśnie sprząta – spróbuj za chwilę.");
+            return;
+        }
+        var job = Settings.FindFolder(path);
+        if (job is not null) { StartTarget(job.Id); return; }
+        var adHoc = FolderJob.ForPath(path);
+        if (ShowFolderPreview(adHoc, startAfter: false))
+            Controller.StartRun(false, false, new List<FolderJob> { adHoc });
+    }
+
+    /// <summary>Menu kontekstowe „Sprzątaj ten folder regularnie”.</summary>
+    private void AddFolderPath(string path)
+    {
+        path = path.Trim('"');
+        if (KnownFolders.WhyForbidden(path) is { } why)
+        {
+            Notifications.Info("DeskVac – tego folderu nie sprzątam", why);
+            return;
+        }
+        var job = Settings.FindFolder(path);
+        if (job is null)
+        {
+            job = FolderJob.ForPath(path);
+            Settings.Folders.Add(job);
+            OnFoldersChanged();
+        }
+        ShowSettings();
+        EditFolder(job);
+    }
+
+    /// <summary>Okno ustawień folderu; po zapisaniu – zapis, menu kontekstowe, lista w panelu.</summary>
+    public bool EditFolder(FolderJob job)
+    {
+        var w = new FolderJobWindow(job);
+        if (_settingsWindow is { IsVisible: true } sw) w.Owner = sw;
+        else if (Panel.IsVisible) w.Owner = Panel;
+        if (w.ShowDialog() != true) return false;
+        OnFoldersChanged();
+        return true;
+    }
+
+    public void OnFoldersChanged()
+    {
+        Settings.Save();
+        ShellIntegration.Sync(Settings);
+        Panel.RefreshTargets();
+        _settingsWindow?.RenderFolders();
+    }
+
+    private (int Total, string Details) GatherReminder()
+    {
+        var parts = new List<string>();
+        int desktop = Controller.CountCleanable();
+        if (desktop > 0) parts.Add($"Pulpit {desktop}");
+        int total = desktop;
+        foreach (var job in Settings.FoldersWithDesktop)
+        {
+            int n = FolderCleaner.Count(job, Settings);
+            if (n == 0) continue;
+            total += n;
+            parts.Add($"{job.DisplayName} {n}");
+        }
+        return (total, string.Join(" · ", parts));
+    }
+
+    /// <summary>Własny harmonogram folderu: sprzątanie automatyczne w tle.</summary>
+    private bool AutoCleanFolder(FolderJob job)
+    {
+        if (Controller.IsRunning) return false;
+        var ok = ConfirmFolders(new[] { job }, interactive: false);
+        if (ok.Count == 0) return true; // brak zgody (wysłano prośbę o podgląd) albo nic do roboty – dziś już nie próbujemy
+        try
+        {
+            int n = Controller.StartRun(background: true, desktop: false, ok);
+            if (n > 0) Notifications.Info($"🤖 Robot porządkuje „{job.DisplayName}”", $"{n} {Notifications.Plural(n)} – w tle, możesz pracować dalej.");
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
         }
     }
 
@@ -234,7 +437,7 @@ public partial class App : Application
         if (Controller.IsRunning) return false;
         try
         {
-            int n = Controller.Start(background: true);
+            int n = Controller.StartRun(background: true, desktop: true, ConfirmFolders(Settings.FoldersWithDesktop, interactive: false));
             if (n > 0) Notifications.AutoCleanStarted(n);
             else Controller.SayFromDock(CleaningController.CleanDesktopMessage, 8, sound: Settings.PlaySounds && !Settings.AutoCleanQuiet);
             return true; // także gdy pulpit był czysty – dziś już nie próbujemy
@@ -325,7 +528,13 @@ public partial class App : Application
         }
 
         bool running = Controller.IsRunning;
-        Item("🧹  Sprzątaj teraz", () => { Panel.ShowPanel(); Panel.StartCleaning(); }, !running);
+        Item("🧹  Sprzątaj wszystko", () => StartTarget("all"), !running);
+        Item("Sprzątaj pulpit", () => StartTarget("desktop"), !running);
+        foreach (var job in Settings.Folders.Where(f => f.Enabled))
+        {
+            var id = job.Id;
+            Item($"Sprzątaj „{job.DisplayName}”", () => StartTarget(id), !running);
+        }
         if (running) Item("⏹  Zatrzymaj i wróć do bazy", Controller.Stop);
         Item("Pokaż panel", Panel.ShowPanel);
         Item("Ustawienia…", ShowSettings);

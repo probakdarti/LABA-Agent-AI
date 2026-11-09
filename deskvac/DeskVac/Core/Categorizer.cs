@@ -107,6 +107,17 @@ public static class Categorizer
 
     // ------------------------------------------------------------------ API
 
+    /// <summary>Nazwy folderów, które tworzy robot – przy sprzątaniu folderu zostają na miejscu.</summary>
+    public static HashSet<string> AllCategoryFolders()
+    {
+        var set = new HashSet<string>(Types.Select(t => t.Folder), StringComparer.OrdinalIgnoreCase)
+        {
+            "Skróty programów", "Skróty do folderów", "Skróty do dokumentów", "Skróty internetowe",
+            "Foldery", "Inne", "Duplikaty",
+        };
+        return set;
+    }
+
     /// <summary>Folder docelowy względem „Zebrane z pulpitu”, np. „PDF\Faktury” albo „Skróty programów”.</summary>
     public static string RelativeFolder(string path, bool useTopics)
     {

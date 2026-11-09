@@ -78,9 +78,9 @@ public sealed class CleaningController : IDisposable
     public string? LastProblem { get; private set; }
 
     /// <summary>Np. „Word 3 · PDF 2 · Zdjęcia 5” – co trafiło gdzie przy ostatnim sprzątaniu.</summary>
-    public string SummaryText => _collector is null || _collector.Summary.Count == 0
+    public string SummaryText => _summary.Count == 0
         ? ""
-        : string.Join(" · ", _collector.Summary.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}"));
+        : string.Join(" · ", _summary.OrderByDescending(kv => kv.Value).Take(8).Select(kv => $"{kv.Key} {kv.Value}"));
     public string CollectionFolder => new Collector(_settings).BaseFolder;
     public IReadOnlyList<MonitorInfo> MonitorList => _monitors;
     public Rect World => _world;
@@ -267,34 +267,69 @@ public sealed class CleaningController : IDisposable
     /// nakładki leżą pod oknami programów (nie przeszkadzają), opcjonalnie bez dźwięku.
     /// Zwraca liczbę elementów do zebrania (0 = nic do roboty).
     /// </summary>
-    public int Start(bool background)
+    /// <summary>Sam pulpit (zgodność wstecz).</summary>
+    public int Start(bool background) => StartRun(background, desktop: true, Array.Empty<FolderJob>());
+
+    private readonly Queue<FolderJob> _pendingFolders = new();
+    private readonly Dictionary<string, int> _summary = new(StringComparer.OrdinalIgnoreCase);
+    private CancellationTokenSource? _cts;
+    private string _runId = "";
+
+    /// <summary>
+    /// Rusza robota: pulpit (opcjonalnie) i podane foldery, po kolei w jednym wyjeździe.
+    /// background = sprzątanie automatyczne: bez minimalizowania okien, nakładki pod oknami programów.
+    /// Zwraca szacowaną liczbę elementów (0 = nic do roboty).
+    /// </summary>
+    public int StartRun(bool background, bool desktop, IReadOnlyList<FolderJob> folders)
     {
         if (IsRunning) return 0;
         RebuildLayout();
 
-        _view = DesktopView.Open();
-        _collector = new Collector(_settings);
-        var items = ReadItems(_view, _collector, exact: true);
-        int cleanable = items.Count(i => i.State == ItemState.Hidden);
-        if (cleanable == 0) return 0;
+        List<DesktopItem> items = new();
+        int cleanable = 0;
+        _collector = null;
+        if (desktop)
+        {
+            _view = DesktopView.Open();
+            _collector = new Collector(_settings);
+            items = ReadItems(_view, _collector, exact: true);
+            cleanable = items.Count(i => i.State == ItemState.Hidden);
+        }
 
-        Total = cleanable;
+        _pendingFolders.Clear();
+        int folderEstimate = 0;
+        foreach (var job in folders)
+        {
+            int n = FolderCleaner.Count(job, _settings);
+            if (n == 0) continue;
+            folderEstimate += n;
+            _pendingFolders.Enqueue(job);
+        }
+        if (cleanable == 0 && _pendingFolders.Count == 0) return 0;
+
+        _runId = Guid.NewGuid().ToString("N")[..12];
+        _cts = new CancellationTokenSource();
+        _summary.Clear();
+        Total = cleanable + folderEstimate;
         Collected = 0;
         Skipped = 0;
         LastProblem = null;
         Interlocked.Exchange(ref _bytes, 0);
-        _collector.Begin();
+        if (cleanable > 0) _collector!.Begin(_runId);
+        else _collector = null;
 
         IsRunning = true;
         IsBackgroundRun = background;
         ApplySoundSettings();
         UpdateWidgetVisibility();
         _panTimer.Start();
+        Stage.NextWork = NextFolder;
 
         void Launch()
         {
             ShowOverlays(onTop: !background);
-            Stage.Start(items);
+            if (cleanable > 0) Stage.Start(items);
+            else Stage.StartFoldersOnly();
         }
 
         if (!background && _settings.MinimizeWindows)
@@ -309,14 +344,87 @@ public sealed class CleaningController : IDisposable
         }
 
         // przy włączonym „Autorozmieszczaniu” Explorer przesuwa ikony po każdym zabraniu – śledzimy to
-        if (_view.AutoArrange)
+        if (cleanable > 0 && _view!.AutoArrange)
         {
             _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
             _refreshTimer.Tick += (_, _) => RefreshPositions(items);
             _refreshTimer.Start();
         }
-        return cleanable;
+        return Total;
     }
+
+    /// <summary>Robot skończył poprzednią pracę – bierze kolejny folder z kolejki (plan i przeprowadzka w tle).</summary>
+    private bool NextFolder()
+    {
+        if (_pendingFolders.Count == 0 || _cts is null || _cts.IsCancellationRequested) return false;
+        var job = _pendingFolders.Dequeue();
+        Stage.BeginFolderRun(job.DisplayName);
+
+        var ct = _cts.Token;
+        var dispatcher = Application.Current.Dispatcher;
+        int estimate = FolderCleaner.Count(job, _settings);
+        Task.Run(() =>
+        {
+            FolderPlan? plan = null;
+            try
+            {
+                plan = FolderCleaner.Plan(job, _settings, withDuplicates: true, ct);
+            }
+            catch (Exception ex)
+            {
+                dispatcher.BeginInvoke(() => LastProblem = $"{job.DisplayName}: {ex.Message}");
+            }
+
+            if (plan is null || plan.Error is not null)
+            {
+                dispatcher.BeginInvoke(() =>
+                {
+                    if (plan?.Error is { } err) LastProblem = $"{job.DisplayName}: {err}";
+                    Total = Math.Max(Collected, Total - estimate);
+                    Stage.SetFolderTotal(0);
+                    Stage.EndFolderInput();
+                });
+                return;
+            }
+
+            dispatcher.BeginInvoke(() =>
+            {
+                Total = Math.Max(Collected, Total - estimate + plan.Moves.Count);
+                Stage.SetFolderTotal(plan.Moves.Count);
+            });
+
+            var result = FolderCleaner.Execute(plan, _runId, (m, dest) =>
+            {
+                if (!m.IsFolder) Interlocked.Add(ref _bytes, m.Size);
+                dispatcher.BeginInvoke(() =>
+                {
+                    Collected++;
+                    var top = m.Category.Split(Path.DirectorySeparatorChar)[0];
+                    _summary[top] = _summary.GetValueOrDefault(top) + 1;
+                    var item = new DesktopItem
+                    {
+                        Path = dest,
+                        Name = Path.GetFileName(dest),
+                        Kind = m.IsFolder ? ItemKind.Folder : ItemKind.File,
+                        Icon = Stage.FolderQueueHasRoom ? FileIcons.Large(dest) : null,
+                        Category = m.Category,
+                    };
+                    Stage.EmitFolderItem(item);
+                });
+            }, ct);
+
+            dispatcher.BeginInvoke(() =>
+            {
+                Skipped += result.Failed;
+                if (result.Problem is not null) LastProblem = $"{job.DisplayName}: pominięto {result.Problem}";
+                Stage.EndFolderInput();
+            });
+        }, ct);
+        return true;
+    }
+
+    /// <summary>Liczba elementów do posprzątania w folderach (do przypomnień).</summary>
+    public int CountFolders(IEnumerable<FolderJob> jobs) => jobs.Sum(j => FolderCleaner.Count(j, _settings));
 
     public void TogglePause()
     {
@@ -330,7 +438,10 @@ public sealed class CleaningController : IDisposable
 
     public void Stop()
     {
-        if (IsRunning) Stage.RequestStop();
+        if (!IsRunning) return;
+        _cts?.Cancel();
+        _pendingFolders.Clear();
+        Stage.RequestStop();
     }
 
     private bool OnCollect(DesktopItem item)
@@ -346,6 +457,8 @@ public sealed class CleaningController : IDisposable
 
         item.MovedTo = dest;
         Collected++;
+        var top = (item.Category ?? "").Split(Path.DirectorySeparatorChar)[0];
+        if (top.Length > 0) _summary[top] = _summary.GetValueOrDefault(top) + 1;
         Task.Run(() => Interlocked.Add(ref _bytes, Collector.SizeOf(dest)));
         return true;
     }
@@ -564,15 +677,23 @@ public sealed class CleaningController : IDisposable
     public string UndoLast()
     {
         if (IsRunning) return "Poczekaj, aż robot skończy sprzątanie.";
-        var last = Collector.LoadLast();
-        if (last is null) return "Brak sprzątania do cofnięcia.";
+        var run = Collector.LoadLastRun();
+        if (run.Count == 0) return "Brak sprzątania do cofnięcia.";
 
-        var restored = Collector.Undo(last.Value.Log, last.Value.File, out int failed);
-        if (restored.Count > 0) RestorePositionsLater(restored);
+        int restoredCount = 0, failed = 0;
+        var positions = new List<(string Path, POINT Position)>();
+        foreach (var (log, file) in run)
+        {
+            var restored = Collector.Undo(log, file, out int f);
+            failed += f;
+            restoredCount += restored.Count;
+            if (!log.IsFolder) positions.AddRange(restored); // pozycje ikon tylko dla pulpitu
+        }
+        if (positions.Count > 0) RestorePositionsLater(positions);
 
         return failed == 0
-            ? $"Przywrócono {restored.Count} {Notifications.Plural(restored.Count)} na pulpit."
-            : $"Przywrócono {restored.Count}, nie udało się: {failed} (np. plik o tej samej nazwie już jest na pulpicie).";
+            ? $"Przywrócono {restoredCount} {Notifications.Plural(restoredCount)} na dawne miejsca."
+            : $"Przywrócono {restoredCount}, nie udało się: {failed} (np. plik o tej samej nazwie już tam jest).";
     }
 
     private static void RestorePositionsLater(List<(string Path, POINT Position)> restored)

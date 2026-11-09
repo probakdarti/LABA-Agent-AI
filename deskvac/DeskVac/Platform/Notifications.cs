@@ -1,3 +1,4 @@
+using DeskVac.Core;
 using Microsoft.Toolkit.Uwp.Notifications;
 
 namespace DeskVac.Platform;
@@ -13,15 +14,41 @@ public static class Notifications
     public const string ActionOpenFolder = "openFolder";
     public const string ActionShow = "show";
 
-    public static void Reminder(int count)
+    public const string ActionCleanFolder = "cleanFolder";
+    public const string ActionPreviewFolder = "previewFolder";
+
+    public static void Reminder(int count, string details = "")
     {
         Try(() => new ToastContentBuilder()
             .AddArgument("action", ActionShow)
-            .AddText($"🧹 Na pulpicie leży {count} {Plural(count)} do sprzątania")
-            .AddText("Wypuścić robota?")
+            .AddText($"🧹 Do sprzątania: {count} {Plural(count)}")
+            .AddText(details.Length > 0 ? details + "\nWypuścić robota?" : "Wypuścić robota?")
             .AddButton(new ToastButton().SetContent("Posprzątaj teraz").AddArgument("action", ActionClean))
             .AddButton(new ToastButton().SetContent("Za godzinę").AddArgument("action", ActionSnooze))
             .AddButton(new ToastButton().SetContent("Nie dziś").AddArgument("action", ActionSkipToday))
+            .Show());
+    }
+
+    public static void FolderReminder(FolderJob job, int count)
+    {
+        Try(() => new ToastContentBuilder()
+            .AddArgument("action", ActionShow)
+            .AddText($"📂 {job.DisplayName}: {count} {Plural(count)} do uporządkowania")
+            .AddText("Robot posortuje je na miejscu (PDF, Word, Instalatory…) – nic nie usuwa.")
+            .AddButton(new ToastButton().SetContent("Posprzątaj teraz").AddArgument("action", ActionCleanFolder).AddArgument("folder", job.Id))
+            .AddButton(new ToastButton().SetContent("Podgląd").AddArgument("action", ActionPreviewFolder).AddArgument("folder", job.Id))
+            .Show());
+    }
+
+    /// <summary>Folder nie ma jeszcze zatwierdzonego podglądu – sprzątanie automatyczne go pominęło.</summary>
+    public static void PreviewNeeded(FolderJob job)
+    {
+        Try(() => new ToastContentBuilder()
+            .AddArgument("action", ActionPreviewFolder)
+            .AddArgument("folder", job.Id)
+            .AddText($"📂 {job.DisplayName}: zatwierdź pierwsze sprzątanie")
+            .AddText("Zanim robot pierwszy raz uporządkuje ten folder, pokaże Ci, co gdzie trafi. Kliknij, aby zobaczyć podgląd.")
+            .AddButton(new ToastButton().SetContent("Pokaż podgląd").AddArgument("action", ActionPreviewFolder).AddArgument("folder", job.Id))
             .Show());
     }
 

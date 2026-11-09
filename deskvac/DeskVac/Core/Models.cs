@@ -75,6 +75,15 @@ public sealed class AppSettings
 
     public string CollectionFolderName { get; set; } = "Zebrane z pulpitu";
 
+    // --- sprzątane foldery (np. Pobrane) ---
+    public List<FolderJob> Folders { get; set; } = new();
+    /// <summary>Pierwsze uruchomienie z tą funkcją dodaje „Pobrane” do listy.</summary>
+    public bool FoldersInitialized { get; set; }
+    /// <summary>Potrójne kliknięcie w robota sprząta pulpit i foldery „razem z pulpitem” (a nie sam pulpit).</summary>
+    public bool QuickCleanIncludesFolders { get; set; } = true;
+    /// <summary>Ostatni wybór w panelu: "all", "desktop" albo Id folderu.</summary>
+    public string PanelTarget { get; set; } = "all";
+
     /// <summary>Zebrane dzielone na foldery wg typu (Word, PDF, Zdjęcia…) zamiast wg daty sprzątania.</summary>
     public bool SortByType { get; set; } = true;
     /// <summary>Dodatkowo podfoldery tematyczne wg słów w nazwie (Umowy, Faktury, Oferty…).</summary>
@@ -122,6 +131,7 @@ public sealed class AppSettings
             {
                 var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new AppSettings();
                 s.ReminderTimes = s.ReminderTimes.Where(t => TryParseTime(t, out _)).Distinct().ToList();
+                s.InitFolders();
                 return s;
             }
         }
@@ -129,8 +139,27 @@ public sealed class AppSettings
         {
             // uszkodzony plik – wracamy do domyślnych
         }
-        return new AppSettings();
+        var fresh = new AppSettings();
+        fresh.InitFolders();
+        return fresh;
     }
+
+    private void InitFolders()
+    {
+        if (FoldersInitialized) return;
+        FoldersInitialized = true;
+        var downloads = KnownFolders.Downloads;
+        if (Directory.Exists(downloads) && !Folders.Any(f => f.IsDownloads))
+            Folders.Insert(0, FolderJob.ForPath(downloads));
+    }
+
+    /// <summary>Foldery sprzątane razem z pulpitem (przypomnienia, sprzątanie automatyczne, potrójne kliknięcie).</summary>
+    public IEnumerable<FolderJob> FoldersWithDesktop =>
+        Folders.Where(f => f.Enabled && f.Mode == FolderScheduleMode.WithDesktop && Directory.Exists(f.Path));
+
+    public FolderJob? FindFolder(string idOrPath) =>
+        Folders.FirstOrDefault(f => f.Id == idOrPath ||
+            string.Equals(Path.TrimEndingDirectorySeparator(f.Path), Path.TrimEndingDirectorySeparator(idOrPath), StringComparison.OrdinalIgnoreCase));
 
     public void Save()
     {

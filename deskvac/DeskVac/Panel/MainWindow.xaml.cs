@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using DeskVac.Core;
@@ -45,6 +46,14 @@ public partial class MainWindow : Window
         };
 
         _ui.Tick += (_, _) => RefreshUi();
+
+        RefreshTargets();
+        TargetBox.SelectionChanged += (_, _) =>
+        {
+            if (_loading || TargetBox.SelectedItem is not ComboBoxItem { Tag: string t }) return;
+            _settings.PanelTarget = t;
+            _settings.Save();
+        };
 
         ProtectDrop.DragEnter += OnProtectDragOver;
         ProtectDrop.DragOver += OnProtectDragOver;
@@ -168,20 +177,28 @@ public partial class MainWindow : Window
     {
         SaveQuickSettings();
         ShowProblem(null);
-        try
+        var target = TargetBox.SelectedItem is ComboBoxItem { Tag: string t } ? t : "all";
+        ((App)Application.Current).StartTarget(target, fromPanel: true);
+    }
+
+    /// <summary>Lista „Co sprzątać”: wszystko, pulpit, każdy włączony folder.</summary>
+    public void RefreshTargets()
+    {
+        bool was = _loading;
+        _loading = true;
+        TargetBox.Items.Clear();
+        var folders = _settings.Folders.Where(f => f.Enabled).ToList();
+        TargetBox.Items.Add(new ComboBoxItem
         {
-            int n = _controller.Start(background: false);
-            if (n == 0)
-            {
-                ShowProblem("Pulpit jest już czysty – nie ma czego zbierać 🙂");
-                _controller.SayFromDock(CleaningController.CleanDesktopMessage, sound: _settings.PlaySounds);
-            }
-            else Topmost = true;
-        }
-        catch (Exception ex)
-        {
-            ShowProblem(ex.Message);
-        }
+            Content = folders.Count == 0 ? "Pulpit" : "Wszystko: pulpit + " + string.Join(", ", folders.Select(f => f.DisplayName)),
+            Tag = "all",
+        });
+        if (folders.Count > 0) TargetBox.Items.Add(new ComboBoxItem { Content = "Tylko pulpit", Tag = "desktop" });
+        foreach (var f in folders)
+            TargetBox.Items.Add(new ComboBoxItem { Content = $"Tylko folder „{f.DisplayName}”", Tag = f.Id });
+        TargetBox.SelectedItem = TargetBox.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _settings.PanelTarget)
+                                 ?? TargetBox.Items[0];
+        _loading = was;
     }
 
     private void OnPause(object sender, RoutedEventArgs e) => _controller.TogglePause();
@@ -227,6 +244,7 @@ public partial class MainWindow : Window
 
         StartButton.IsEnabled = !running;
         bool parking = stage.Phase is RobotPhase.Returning or RobotPhase.Docking or RobotPhase.Emptying;
+        TargetBox.IsEnabled = !running;
         PauseButton.IsEnabled = running && !parking;
         StopButton.IsEnabled = running && !parking;
         UndoButton.IsEnabled = !running;
@@ -246,7 +264,9 @@ public partial class MainWindow : Window
             RobotPhase.Docked => "W stacji dokującej",
             RobotPhase.Undocking => "Wyjeżdżam ze stacji…",
             RobotPhase.Scanning => "Skanuję pulpity lidarem…",
-            RobotPhase.Cleaning => $"Sprzątam – zostało {stage.Items.Count(i => i.State == ItemState.Discovered)}",
+            RobotPhase.Cleaning => $"Sprzątam pulpit – zostało {stage.Items.Count(i => i.State == ItemState.Discovered)}",
+            RobotPhase.FolderApproach => $"Jadę do folderu „{stage.PortalTitle}”…",
+            RobotPhase.FolderWork => $"Porządkuję „{stage.PortalTitle}”…",
             RobotPhase.Returning => "Wracam do bazy…",
             RobotPhase.Docking => "Parkuję w stacji…",
             RobotPhase.Emptying => "Stacja opróżnia pojemnik…",

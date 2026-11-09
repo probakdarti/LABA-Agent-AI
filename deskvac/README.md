@@ -74,6 +74,40 @@ Pozycje są w klasycznym menu (Windows 11 dopuszcza do skróconego menu tylko po
 Przebieg sprzątania: **wyjazd ze stacji → skan lidarem (wykrywanie ikon) → sprzątanie
 (najbliższa ikona, robot zbiera też wszystko, przez co przejeżdża) → powrót → dokowanie i ładowanie.**
 
+## Sprzątanie innych folderów (np. Pobrane)
+
+W **Ustawieniach → Sprzątane foldery** jest lista folderów (domyślnie **Pobrane**; przyciski *+ Dokumenty,
++ Obrazy, + Inny folder…*). Robot porządkuje je **na miejscu**:
+
+```
+Pobrane\
+├─ PDF\Faktury\  PDF\Umowy\  Word\…  Excel\…  Instalatory\  Archiwa\  Zdjęcia\Zrzuty ekranu\ …
+├─ Foldery\      ← luźne podfoldery (np. rozpakowane archiwa)
+├─ Duplikaty\    ← identyczne kopie (ta sama zawartość, SHA-256) – nic nie jest usuwane
+└─ (już istniejące foldery kategorii zostają na miejscu)
+```
+
+Zasady bezpieczeństwa (dla każdego folderu osobno):
+- pomija pliki młodsze niż ustawiony wiek (Pobrane: domyślnie **1 dzień**, do zmiany w godzinach/dniach),
+- zawsze pomija niedokończone pobierania (`.crdownload`, `.part`, `.tmp`…), pliki ukryte/systemowe,
+  pliki otwarte w programach i elementy chronione („Nie odkurzaj!” działa też w tych folderach),
+- przed **pierwszym** sprzątaniem folderu pokazuje **podgląd** („plik → dokąd trafi”) do zatwierdzenia;
+  sprzątanie automatyczne bez zatwierdzonego podglądu pomija folder i prosi o podgląd powiadomieniem,
+- nie sprząta folderów systemowych (dysk, Windows, Program Files, profil, AppData),
+- **„Cofnij”** cofa cały ostatni wyjazd robota – pulpit i foldery razem.
+
+**Harmonogram:** Pobrane – *wspólny z pulpitem* albo *własny*; inne foldery – zawsze własny:
+tylko ręcznie / przypomnienie / sprzątanie automatyczne o wybranej godzinie i w wybrane dni.
+
+**Uruchamianie:** w panelu lista **Co sprzątać** (Wszystko / Tylko pulpit / Tylko folder…), menu ikony
+w zasobniku i robota (*Sprzątaj wszystko / pulpit / „Pobrane”*), potrójne kliknięcie w robota (pulpit
++ foldery „razem z pulpitem”, do wyłączenia), powiadomienia oraz **prawy przycisk na folderze**:
+*DeskVac: Posprzątaj ten folder* (jednorazowo, z podglądem) i *DeskVac: Sprzątaj ten folder regularnie*.
+
+**Animacja:** przy stacji pojawia się duża ikona folderu z licznikiem; robot podjeżdża, pliki wyskakują
+z folderu i są zasysane z podpisem „→ PDF / Faktury”. Przy setkach plików animowana jest część,
+licznik pokazuje wszystkie.
+
 ## Porządkowanie zebranych
 
 Zebrane elementy trafiają do folderów **wg typu**, a dokumenty dodatkowo **wg tematu z nazwy pliku**:

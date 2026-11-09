@@ -18,7 +18,8 @@ public static class ShellIntegration
     public static void Sync(AppSettings s)
     {
         SetAutostart(s.StartWithWindows);
-        RegisterContextMenu(s.ContextMenuOnlyOnDesktop, s.ProtectedPaths);
+        RegisterContextMenu(s.ContextMenuOnlyOnDesktop, s.ProtectedPaths, s.Folders.Where(f => f.Enabled).Select(f => f.Path).ToList());
+        RegisterFolderVerbs();
     }
 
     /// <summary>Czy autostart jest włączony. To rejestr jest źródłem prawdy (ustawia go instalator albo okno ustawień).</summary>
@@ -55,7 +56,7 @@ public static class ShellIntegration
     /// „Pozwól odkurzać!” – tylko dla elementów chronionych.
     /// Warunki zawierają listę chronionych ścieżek, więc odświeżamy je przy każdej zmianie listy.
     /// </summary>
-    public static void RegisterContextMenu(bool onlyOnDesktop, IReadOnlyCollection<string> protectedPaths)
+    public static void RegisterContextMenu(bool onlyOnDesktop, IReadOnlyCollection<string> protectedPaths, IReadOnlyCollection<string>? cleanedFolders = null)
     {
         try
         {
@@ -68,6 +69,7 @@ public static class ShellIntegration
                         Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
                         Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory),
                     }
+                    .Concat(cleanedFolders ?? Array.Empty<string>())   // „Nie odkurzaj!” także w sprzątanych folderach (np. Pobrane)
                     .Where(d => !string.IsNullOrEmpty(d))
                     .Select(d => "System.ParsingPath:~<" + Q(d.TrimEnd('\\') + "\\"));
                 desktopFilter = "(" + string.Join(" OR ", desktops) + ")";
@@ -104,16 +106,37 @@ public static class ShellIntegration
         }
     }
 
-    private static void WriteVerb(string keyPath, string label, string arg, string? appliesTo)
+    private const string FolderCleanKey = @"Software\Classes\Directory\shell\DeskVac.CleanFolder";
+    private const string FolderCleanBgKey = @"Software\Classes\Directory\Background\shell\DeskVac.CleanFolder";
+    private const string FolderAddKey = @"Software\Classes\Directory\shell\DeskVac.AddFolder";
+    private const string FolderAddBgKey = @"Software\Classes\Directory\Background\shell\DeskVac.AddFolder";
+
+    /// <summary>Prawy przycisk na folderze (albo na tle otwartego folderu): „Posprzątaj ten folder” i „Sprzątaj regularnie”.</summary>
+    public static void RegisterFolderVerbs()
+    {
+        try
+        {
+            WriteVerb(FolderCleanKey, "DeskVac: Posprzątaj ten folder", "--clean-folder", null, "%1");
+            WriteVerb(FolderCleanBgKey, "DeskVac: Posprzątaj ten folder", "--clean-folder", null, "%V");
+            WriteVerb(FolderAddKey, "DeskVac: Sprzątaj ten folder regularnie", "--add-folder", null, "%1");
+            WriteVerb(FolderAddBgKey, "DeskVac: Sprzątaj ten folder regularnie", "--add-folder", null, "%V");
+        }
+        catch (Exception)
+        {
+            // bez menu – foldery dodaje się w ustawieniach
+        }
+    }
+
+    private static void WriteVerb(string keyPath, string label, string arg, string? appliesTo, string placeholder = "%1")
     {
         using var key = Registry.CurrentUser.CreateSubKey(keyPath);
         key.SetValue("MUIVerb", label);
         key.SetValue("Icon", $"\"{ExePath}\",0");
-        key.SetValue("MultiSelectModel", "Document");
+        key.SetValue("MultiSelectModel", placeholder == "%V" ? "Single" : "Document");
         if (appliesTo is null) key.DeleteValue("AppliesTo", false);
         else key.SetValue("AppliesTo", appliesTo);
         using var cmd = key.CreateSubKey("command");
-        cmd.SetValue("", $"\"{ExePath}\" {arg} \"%1\"");
+        cmd.SetValue("", $"\"{ExePath}\" {arg} \"{placeholder}\"");
     }
 
     private const uint SHCNE_ASSOCCHANGED = 0x08000000;
@@ -124,7 +147,7 @@ public static class ShellIntegration
     /// <summary>Usuwa wszystkie wpisy (wywoływane przez deinstalator: DeskVac.exe --cleanup).</summary>
     public static void RemoveAll()
     {
-        foreach (var k in new[] { VerbKey, ProtectKey, AllowKey })
+        foreach (var k in new[] { VerbKey, ProtectKey, AllowKey, FolderCleanKey, FolderCleanBgKey, FolderAddKey, FolderAddBgKey })
         {
             try { Registry.CurrentUser.DeleteSubKeyTree(k, false); } catch (Exception) { /* nie było */ }
         }

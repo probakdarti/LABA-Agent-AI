@@ -55,6 +55,8 @@ public partial class SettingsWindow : Window
         AutostartBox.IsChecked = _settings.StartWithWindows;
         CloseToTrayBox.IsChecked = _settings.CloseToTray;
         ShowRobotBox.IsChecked = _settings.ShowRobotOnDesktop;
+        QuickAllBox.IsChecked = _settings.QuickCleanIncludesFolders;
+        RenderFolders();
 
         RemindStartupBox.IsChecked = _settings.RemindOnStartup;
         StartupDelayBox.Text = _settings.StartupDelayMinutes.ToString();
@@ -269,6 +271,7 @@ public partial class SettingsWindow : Window
         _settings.StartWithWindows = AutostartBox.IsChecked == true;
         _settings.CloseToTray = CloseToTrayBox.IsChecked == true;
         _settings.ShowRobotOnDesktop = ShowRobotBox.IsChecked == true;
+        _settings.QuickCleanIncludesFolders = QuickAllBox.IsChecked == true;
 
         _settings.RemindOnStartup = RemindStartupBox.IsChecked == true;
         _settings.StartupDelayMinutes = delay;
@@ -297,6 +300,92 @@ public partial class SettingsWindow : Window
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => Close();
+
+    // ------------------------------------------------------------------ sprzątane foldery (zmiany od razu)
+
+    private static App AppRef => (App)Application.Current;
+
+    public void RenderFolders()
+    {
+        FoldersPanel.Children.Clear();
+        if (_settings.Folders.Count == 0)
+        {
+            FoldersPanel.Children.Add(new TextBlock { Text = "Brak – dodaj folder przyciskami poniżej.", Foreground = (System.Windows.Media.Brush)FindResource("Muted"), Margin = new Thickness(0, 0, 0, 6) });
+            return;
+        }
+        foreach (var job in _settings.Folders.ToList())
+        {
+            var row = new StackPanel();
+            var title = new DockPanel();
+            var icon = new System.Windows.Controls.Image { Width = 16, Height = 16, Margin = new Thickness(0, 0, 8, 0), Source = FileIcons.Small(job.Path) };
+            DockPanel.SetDock(icon, Dock.Left);
+            title.Children.Add(icon);
+            title.Children.Add(new TextBlock
+            {
+                Text = job.DisplayName + (job.Enabled ? "" : "  (wyłączony)") + (Directory.Exists(job.Path) ? "" : "  (nie istnieje)"),
+                FontWeight = FontWeights.SemiBold,
+                Opacity = job.Enabled ? 1 : 0.55,
+            });
+            row.Children.Add(title);
+            row.Children.Add(new TextBlock
+            {
+                Text = $"{job.Path}\nHarmonogram: {job.ScheduleText} · pomija pliki młodsze niż {FolderPreviewWindow.AgeText(job.MinAgeHours)}"
+                       + (job.DetectDuplicates ? " · duplikaty" : "") + (job.MoveLooseFolders ? " · podfoldery → Foldery" : ""),
+                FontSize = 11,
+                Foreground = (System.Windows.Media.Brush)FindResource("Muted"),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(24, 2, 0, 6),
+            });
+            var buttons = new WrapPanel { Margin = new Thickness(24, 0, 0, 0) };
+            var j = job;
+            buttons.Children.Add(Ui.Button("Ustawienia…", (_, _) => AppRef.EditFolder(j)));
+            buttons.Children.Add(Ui.Button("Podgląd", (_, _) => AppRef.ShowFolderPreview(j, startAfter: true)));
+            buttons.Children.Add(Ui.Button("Sprzątaj teraz", (_, _) => AppRef.StartTarget(j.Id)));
+            buttons.Children.Add(Ui.Button("Usuń z listy", (_, _) =>
+            {
+                _settings.Folders.Remove(j);
+                AppRef.OnFoldersChanged();
+            }));
+            foreach (var b in buttons.Children.OfType<Button>()) { b.Padding = new Thickness(10, 4, 10, 4); b.Margin = new Thickness(0, 0, 6, 6); b.FontSize = 12; }
+            row.Children.Add(buttons);
+            FoldersPanel.Children.Add(new Border
+            {
+                Child = row,
+                Padding = new Thickness(10, 8, 10, 4),
+                Margin = new Thickness(0, 0, 0, 8),
+                CornerRadius = new CornerRadius(10),
+                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x12, 0x16, 0x1B)),
+            });
+        }
+    }
+
+    private void AddFolder(string path)
+    {
+        if (KnownFolders.WhyForbidden(path) is { } why)
+        {
+            SaveInfo.Text = why;
+            return;
+        }
+        if (_settings.FindFolder(path) is { } existing)
+        {
+            SaveInfo.Text = $"„{existing.DisplayName}” już jest na liście.";
+            return;
+        }
+        var job = FolderJob.ForPath(path);
+        _settings.Folders.Add(job);
+        AppRef.OnFoldersChanged();
+        AppRef.EditFolder(job);
+    }
+
+    private void OnAddDownloads(object sender, RoutedEventArgs e) => AddFolder(KnownFolders.Downloads);
+    private void OnAddDocuments(object sender, RoutedEventArgs e) => AddFolder(KnownFolders.Documents);
+    private void OnAddPictures(object sender, RoutedEventArgs e) => AddFolder(KnownFolders.Pictures);
+
+    private void OnAddOtherFolder(object sender, RoutedEventArgs e)
+    {
+        var dlg = new OpenFolderDialog { Title = "Wybierz folder, który robot ma sprzątać", Multiselect = false };
+        if (dlg.ShowDialog(this) == true) AddFolder(dlg.FolderName);
+    }
 
     private void OnReorganize(object sender, RoutedEventArgs e)
     {

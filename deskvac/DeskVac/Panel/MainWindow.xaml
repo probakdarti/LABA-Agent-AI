@@ -75,6 +75,12 @@
       </Border>
     </Grid>
 
+    <!-- co sprzątać -->
+    <DockPanel Margin="0,14,0,0">
+      <TextBlock Text="CO SPRZĄTAĆ" Style="{StaticResource Caption}" Margin="0,0,10,0" VerticalAlignment="Center" DockPanel.Dock="Left"/>
+      <ComboBox x:Name="TargetBox" FontSize="13" Padding="8,5"/>
+    </DockPanel>
+
     <!-- sterowanie -->
     <Grid Margin="0,14,0,0">
       <Grid.ColumnDefinitions>

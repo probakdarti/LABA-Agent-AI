@@ -10,6 +10,31 @@ public sealed class CleanupLog
     public DateTime StartedAt { get; set; }
     public string SessionFolder { get; set; } = "";
     public List<MoveRecord> Moves { get; set; } = new();
+
+    /// <summary>Wspólny identyfikator jednego „wyjazdu” robota (pulpit + foldery) – „Cofnij” cofa całość.</summary>
+    public string RunId { get; set; } = "";
+    /// <summary>"desktop" albo "folder".</summary>
+    public string Kind { get; set; } = "desktop";
+    /// <summary>Dla folderów: sprzątany folder (granica usuwania pustych podfolderów przy cofaniu).</summary>
+    public string? RootFolder { get; set; }
+
+    public bool IsFolder => Kind == "folder";
+
+    public static void Save(CleanupLog log, string file)
+    {
+        try
+        {
+            Directory.CreateDirectory(AppPaths.HistoryDir);
+            File.WriteAllText(file, JsonSerializer.Serialize(log, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        catch (Exception)
+        {
+            // brak dziennika nie przerywa sprzątania
+        }
+    }
+
+    public static string NewFile(DateTime at, string suffix) =>
+        Path.Combine(AppPaths.HistoryDir, at.ToString("yyyyMMdd-HHmmss") + "-" + suffix + ".json");
 }
 
 /// <summary>
@@ -40,14 +65,16 @@ public sealed class Collector
         path.Equals(BaseFolder, StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith(BaseFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
 
-    public void Begin()
+    public void Begin(string runId)
     {
         _log.StartedAt = DateTime.Now;
+        _log.RunId = runId;
+        _log.Kind = "desktop";
         SessionFolder = Path.Combine(BaseFolder, _log.StartedAt.ToString("yyyy-MM-dd HH.mm.ss"));
         _log.SessionFolder = SessionFolder;
         _log.Moves.Clear();
         Summary.Clear();
-        _logFile = Path.Combine(AppPaths.HistoryDir, _log.StartedAt.ToString("yyyyMMdd-HHmmss") + ".json");
+        _logFile = CleanupLog.NewFile(_log.StartedAt, "pulpit");
     }
 
     /// <summary>Przenosi element. Zwraca ścieżkę docelową albo null + komunikat błędu.</summary>
@@ -124,20 +151,30 @@ public sealed class Collector
         }
     }
 
-    public static (CleanupLog Log, string File)? LoadLast()
+    /// <summary>Wszystkie dzienniki ostatniego „wyjazdu” robota (pulpit i foldery mają wspólny RunId).</summary>
+    public static List<(CleanupLog Log, string File)> LoadLastRun()
     {
+        var result = new List<(CleanupLog, string)>();
         try
         {
-            if (!Directory.Exists(AppPaths.HistoryDir)) return null;
-            var last = new DirectoryInfo(AppPaths.HistoryDir).GetFiles("*.json")
-                .OrderByDescending(f => f.Name).FirstOrDefault();
-            if (last is null) return null;
-            var log = JsonSerializer.Deserialize<CleanupLog>(File.ReadAllText(last.FullName));
-            return log is null ? null : (log, last.FullName);
+            if (!Directory.Exists(AppPaths.HistoryDir)) return result;
+            var all = new DirectoryInfo(AppPaths.HistoryDir).GetFiles("*.json")
+                .OrderByDescending(f => f.Name)
+                .Select(f =>
+                {
+                    try { return (Log: JsonSerializer.Deserialize<CleanupLog>(File.ReadAllText(f.FullName)), File: f.FullName); }
+                    catch (Exception) { return (Log: (CleanupLog?)null, File: f.FullName); }
+                })
+                .Where(x => x.Log is not null && x.Log.Moves.Count > 0)
+                .ToList();
+            if (all.Count == 0) return result;
+            var first = all[0];
+            if (string.IsNullOrEmpty(first.Log!.RunId)) return new() { (first.Log, first.File) };
+            return all.Where(x => x.Log!.RunId == first.Log.RunId).Select(x => (x.Log!, x.File)).ToList();
         }
         catch (Exception)
         {
-            return null;
+            return result;
         }
     }
 
@@ -155,7 +192,7 @@ public sealed class Collector
                 else if (File.Exists(m.Destination)) File.Move(m.Destination, m.Source);
                 else { failed++; continue; }
                 restored.Add((m.Source, new POINT(m.X, m.Y)));
-                DeleteEmptyParents(Path.GetDirectoryName(m.Destination), Path.GetDirectoryName(log.SessionFolder));
+                DeleteEmptyParents(Path.GetDirectoryName(m.Destination), log.RootFolder ?? Path.GetDirectoryName(log.SessionFolder));
             }
             catch (Exception)
             {
@@ -163,9 +200,13 @@ public sealed class Collector
             }
         }
 
-        TryDeleteEmpty(log.SessionFolder);
-        var baseFolder = Path.GetDirectoryName(log.SessionFolder);
-        if (baseFolder is not null) TryDeleteEmpty(baseFolder);
+        if (!log.IsFolder)
+        {
+            // tylko „Zebrane z pulpitu” – nigdy sam sprzątany folder (np. Pobrane)
+            TryDeleteEmpty(log.SessionFolder);
+            var baseFolder = Path.GetDirectoryName(log.SessionFolder);
+            if (baseFolder is not null) TryDeleteEmpty(baseFolder);
+        }
         if (failed == 0)
         {
             try { File.Delete(logFile); } catch (Exception) { /* zostawiamy dziennik */ }
@@ -174,7 +215,7 @@ public sealed class Collector
     }
 
     /// <summary>Usuwa puste foldery od <paramref name="dir"/> w górę, aż do <paramref name="stopAt"/> (bez niego).</summary>
-    private static void DeleteEmptyParents(string? dir, string? stopAt)
+    internal static void DeleteEmptyParents(string? dir, string? stopAt)
     {
         while (dir is not null && stopAt is not null &&
                dir.StartsWith(stopAt + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
@@ -279,7 +320,7 @@ public sealed class Collector
         return u == 0 ? $"{bytes} B" : $"{v:0.0} {units[u]}";
     }
 
-    private static string UniquePath(string path)
+    internal static string UniquePath(string path)
     {
         if (!File.Exists(path) && !Directory.Exists(path)) return path;
         var dir = Path.GetDirectoryName(path)!;

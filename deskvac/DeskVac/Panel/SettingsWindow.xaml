@@ -56,6 +56,7 @@
             <CheckBox x:Name="AutostartBox" Content="Uruchamiaj DeskVac razem z Windows (w tle)"/>
             <CheckBox x:Name="CloseToTrayBox" Content="Zamknięcie panelu chowa DeskVac do zasobnika"/>
             <CheckBox x:Name="ShowRobotBox" Content="Pokazuj robota stojącego przy stacji na pulpicie"/>
+            <CheckBox x:Name="QuickAllBox" Content="Potrójne kliknięcie w robota sprząta też foldery „razem z pulpitem” (np. Pobrane)"/>
           </StackPanel>
         </Border>
 
@@ -98,6 +99,24 @@
             <CheckBox x:Name="AutoQuietBox" Content="Bez dźwięku (sprzątanie w tle nie przeszkadza w pracy)"/>
             <TextBlock Style="{StaticResource Hint}"
                        Text="Robot sprząta pod oknami programów – nie zabiera fokusu i nie minimalizuje okien. Dostaniesz powiadomienie, że ruszył (z przyciskiem „Zatrzymaj”) i że skończył (z przyciskiem „Cofnij”). Podczas prezentacji, gry lub filmu na pełnym ekranie sprzątanie czeka."/>
+          </StackPanel>
+        </Border>
+
+        <!-- SPRZĄTANE FOLDERY -->
+        <Border Style="{StaticResource SettingsCard}">
+          <StackPanel>
+            <TextBlock Text="Sprzątane foldery" Style="{StaticResource Header}"/>
+            <TextBlock Style="{StaticResource Hint}"
+                       Text="Robot porządkuje te foldery na miejscu: luźne pliki trafiają do podfolderów wg typu i tematu (np. Pobrane\PDF\Faktury), luźne podfoldery do „Foldery”, identyczne kopie do „Duplikaty”. Nic nie jest usuwane, każde sprzątanie można cofnąć. Przed pierwszym sprzątaniem folderu zobaczysz podgląd."/>
+            <StackPanel x:Name="FoldersPanel"/>
+            <WrapPanel Margin="0,6,0,0">
+              <Button Content="+ Pobrane" Style="{StaticResource PillButton}" Padding="10,5" Margin="0,0,8,6" Click="OnAddDownloads"/>
+              <Button Content="+ Dokumenty" Style="{StaticResource PillButton}" Padding="10,5" Margin="0,0,8,6" Click="OnAddDocuments"/>
+              <Button Content="+ Obrazy" Style="{StaticResource PillButton}" Padding="10,5" Margin="0,0,8,6" Click="OnAddPictures"/>
+              <Button Content="+ Inny folder…" Style="{StaticResource PillButton}" Padding="10,5" Margin="0,0,8,6" Click="OnAddOtherFolder"/>
+            </WrapPanel>
+            <TextBlock Style="{StaticResource Hint}"
+                       Text="Szybciej: prawy przycisk na dowolnym folderze → Pokaż więcej opcji → „DeskVac: Posprzątaj ten folder” albo „Sprzątaj ten folder regularnie”."/>
           </StackPanel>
         </Border>
 

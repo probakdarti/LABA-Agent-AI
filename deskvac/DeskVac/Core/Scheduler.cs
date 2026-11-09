@@ -57,9 +57,13 @@ public sealed class Scheduler
     private readonly DateTime _startedAt = DateTime.Now;
     private bool _startupDone;
 
-    /// <summary>Przypomnienie: zwraca liczbę elementów do sprzątnięcia (do treści powiadomienia).</summary>
-    public required Func<int> CountItems { get; init; }
-    public required Action<int> ShowReminder { get; init; }
+    /// <summary>Przypomnienie: liczba elementów do sprzątnięcia (pulpit + foldery „razem z pulpitem”) i opis, np. „Pulpit 12 · Pobrane 85”.</summary>
+    public required Func<(int Total, string Details)> CountItems { get; init; }
+    public required Action<int, string> ShowReminder { get; init; }
+    /// <summary>Własne harmonogramy folderów.</summary>
+    public required Func<FolderJob, int> CountFolder { get; init; }
+    public required Action<FolderJob, int> RemindFolder { get; init; }
+    public required Func<FolderJob, bool> AutoCleanFolder { get; init; }
     /// <summary>Uruchamia sprzątanie automatyczne; zwraca false, gdy teraz się nie da (np. robot już jedzie).</summary>
     public required Func<bool> StartAutoClean { get; init; }
     /// <summary>Czy użytkownik jest zajęty (prezentacja, gra, pełny ekran) – wtedy przesuwamy sprzątanie.</summary>
@@ -113,6 +117,31 @@ public sealed class Scheduler
             }
         }
 
+        // --- własne harmonogramy folderów (np. Pobrane w piątek o 15:00) ---
+        foreach (var job in _settings.Folders.Where(f => f.Enabled && f.Mode == FolderScheduleMode.Own && f.Schedule.Kind != FolderScheduleKind.Off))
+        {
+            if (!job.Schedule.Days.Contains(now.DayOfWeek) || !AppSettings.TryParseTime(job.Schedule.Time, out var ft)) continue;
+            var slot = DateTime.Today + ft;
+            var key = $"folder {job.Id} {slot:yyyy-MM-dd HH:mm}";
+            if (now < slot || now - slot >= Grace || _state.Fired.ContainsKey(key)) continue;
+
+            if (job.Schedule.Kind == FolderScheduleKind.AutoClean)
+            {
+                if (UserBusy() || !AutoCleanFolder(job)) continue; // zajęty – spróbujemy przy następnym sprawdzeniu
+            }
+            else
+            {
+                if (skipToday) continue;
+                int n;
+                try { n = CountFolder(job); }
+                catch (Exception) { n = 0; }
+                if (n > 0) RemindFolder(job, n);
+            }
+            _state.Fired[key] = now;
+            _state.Save();
+            return;
+        }
+
         if (skipToday) return;
 
         // --- „przypomnij za godzinę” ---
@@ -152,17 +181,17 @@ public sealed class Scheduler
 
     private void Remind(bool force)
     {
-        int count;
+        (int Total, string Details) info;
         try
         {
-            count = CountItems();
+            info = CountItems();
         }
         catch (Exception)
         {
             return;
         }
-        if (count == 0) return;
-        if (!force && count < _settings.MinItemsToRemind) return;
-        ShowReminder(count);
+        if (info.Total == 0) return;
+        if (!force && info.Total < _settings.MinItemsToRemind) return;
+        ShowReminder(info.Total, info.Details);
     }
 }
