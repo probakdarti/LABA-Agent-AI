@@ -49,11 +49,33 @@ public sealed class DesktopView
         Marshal.ThrowExceptionForHR(browser.QueryActiveShellView(out var viewObj));
         var folderView = (IFolderView)viewObj!;
 
-        ((IOleWindow)viewObj!).GetWindow(out var defView);
-        var listView = FindWindowEx(defView, IntPtr.Zero, "SysListView32", null);
-        if (listView == IntPtr.Zero) listView = defView;
+        var listView = IntPtr.Zero;
+        try
+        {
+            if (((IShellView)viewObj!).GetWindow(out var defView) == 0 && defView != IntPtr.Zero)
+                listView = FindWindowEx(defView, IntPtr.Zero, "SysListView32", null);
+        }
+        catch (Exception)
+        {
+            // niektóre wersje Explorera nie udostępniają tego przez COM – szukamy okna klasycznie niżej
+        }
+        if (listView == IntPtr.Zero) listView = FindDesktopListView();
 
         return new DesktopView(folderView, listView);
+    }
+
+    /// <summary>Okno z ikonami pulpitu: Progman lub WorkerW → SHELLDLL_DefView → SysListView32.</summary>
+    private static IntPtr FindDesktopListView()
+    {
+        var defView = FindWindowEx(FindWindow("Progman", null), IntPtr.Zero, "SHELLDLL_DefView", null);
+        var worker = IntPtr.Zero;
+        while (defView == IntPtr.Zero)
+        {
+            worker = FindWindowEx(IntPtr.Zero, worker, "WorkerW", null);
+            if (worker == IntPtr.Zero) break;
+            defView = FindWindowEx(worker, IntPtr.Zero, "SHELLDLL_DefView", null);
+        }
+        return defView == IntPtr.Zero ? IntPtr.Zero : FindWindowEx(defView, IntPtr.Zero, "SysListView32", null);
     }
 
     /// <summary>Lewy górny róg obszaru ikon pulpitu w fizycznych współrzędnych ekranu.</summary>
@@ -61,8 +83,9 @@ public sealed class DesktopView
     {
         get
         {
+            // bez okna listy przyjmujemy, że obszar ikon zaczyna się w (0,0) monitora głównego
             var p = new POINT(0, 0);
-            ClientToScreen(_listView, ref p);
+            if (_listView != IntPtr.Zero) ClientToScreen(_listView, ref p);
             return p;
         }
     }

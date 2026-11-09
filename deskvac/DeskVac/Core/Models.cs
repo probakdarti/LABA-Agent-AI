@@ -97,7 +97,13 @@ public sealed class AppSettings
         var noExt = System.IO.Path.GetFileNameWithoutExtension(path);
         return Exclusions.Any(e =>
         {
-            var x = e.Trim();
+            var x = e.Trim().Trim('"').TrimEnd('\\', '/');
+            if (x.Contains('\\') || x.Contains('/'))
+            {
+                // pełna ścieżka: wykluczamy ten element albo cokolwiek, co w nim leży
+                return path.Equals(x, StringComparison.OrdinalIgnoreCase)
+                       || path.StartsWith(x + System.IO.Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            }
             return x.Length > 0 && (x.Equals(name, StringComparison.OrdinalIgnoreCase)
                                     || x.Equals(fileName, StringComparison.OrdinalIgnoreCase)
                                     || x.Equals(noExt, StringComparison.OrdinalIgnoreCase));
