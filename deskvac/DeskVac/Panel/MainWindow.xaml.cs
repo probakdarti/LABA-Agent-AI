@@ -209,8 +209,9 @@ public partial class MainWindow : Window
     {
         Topmost = false;
         var msg = $"Gotowe: zebrano {_controller.Collected} z {_controller.Total}.";
-        if (_controller.Skipped > 0) msg += $" Pominięto {_controller.Skipped}. {_controller.LastProblem}";
-        ShowProblem(_controller.Skipped > 0 ? msg : null);
+        if (_controller.SummaryText.Length > 0) msg += $"\n{_controller.SummaryText}";
+        if (_controller.Skipped > 0) msg += $"\nPominięto {_controller.Skipped}. {_controller.LastProblem}";
+        ShowProblem(msg);
     }
 
     public void ShowProblem(string? text)

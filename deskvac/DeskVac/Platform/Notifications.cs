@@ -35,9 +35,10 @@ public static class Notifications
             .Show(t => t.ExpirationTime = DateTimeOffset.Now.AddMinutes(10)));
     }
 
-    public static void Finished(int collected, int skipped, string? problem)
+    public static void Finished(int collected, int skipped, string? problem, string summary = "")
     {
         var text = skipped > 0 ? $"Pominięto {skipped}. {problem}" : "Wszystko leży w folderze „Zebrane z pulpitu”.";
+        if (summary.Length > 0) text = summary + "\n" + text;
         Try(() => new ToastContentBuilder()
             .AddArgument("action", ActionShow)
             .AddText($"✨ Posprzątane: {collected} {Plural(collected)}")

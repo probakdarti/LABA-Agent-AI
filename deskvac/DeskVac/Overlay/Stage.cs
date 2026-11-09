@@ -746,6 +746,7 @@ public sealed class Stage
     {
         if (_labels.TryGetValue(item, out var f)) return f;
         var name = item.Name.Length > 22 ? item.Name[..20] + "…" : item.Name;
+        if (!string.IsNullOrEmpty(item.Category)) name += "\n→ " + item.Category.Replace("\\", " / ");
         double scale = ScaleAt(item.Center);
         f = new FormattedText(name, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
             new Typeface("Segoe UI"), 12 * scale, Brushes.White, scale);

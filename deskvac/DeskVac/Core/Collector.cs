@@ -19,7 +19,11 @@ public sealed class CleanupLog
 public sealed class Collector
 {
     private readonly CleanupLog _log = new();
+    private readonly bool _byType, _byTopic;
     private string? _logFile;
+
+    /// <summary>Ile elementów trafiło do której kategorii (pierwszy poziom, np. „PDF”).</summary>
+    public Dictionary<string, int> Summary { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public string BaseFolder { get; }
     public string SessionFolder { get; private set; } = "";
@@ -28,6 +32,8 @@ public sealed class Collector
     {
         var desktop = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
         BaseFolder = Path.Combine(desktop, settings.CollectionFolderName);
+        _byType = settings.SortByType;
+        _byTopic = settings.SortByTopic;
     }
 
     public bool IsCollectionFolder(string path) =>
@@ -40,6 +46,7 @@ public sealed class Collector
         SessionFolder = Path.Combine(BaseFolder, _log.StartedAt.ToString("yyyy-MM-dd HH.mm.ss"));
         _log.SessionFolder = SessionFolder;
         _log.Moves.Clear();
+        Summary.Clear();
         _logFile = Path.Combine(AppPaths.HistoryDir, _log.StartedAt.ToString("yyyyMMdd-HHmmss") + ".json");
     }
 
@@ -49,8 +56,15 @@ public sealed class Collector
         error = null;
         try
         {
-            Directory.CreateDirectory(SessionFolder);
-            var dest = UniquePath(Path.Combine(SessionFolder, Path.GetFileName(item.Path)));
+            // kategoria liczona PRZED przeniesieniem (np. cel skrótu .lnk czyta się z oryginalnej ścieżki)
+            string folder = SessionFolder;
+            if (_byType)
+            {
+                item.Category = Categorizer.RelativeFolder(item.Path, _byTopic);
+                folder = Path.Combine(BaseFolder, item.Category);
+            }
+            Directory.CreateDirectory(folder);
+            var dest = UniquePath(Path.Combine(folder, Path.GetFileName(item.Path)));
 
             if (Directory.Exists(item.Path))
                 Directory.Move(item.Path, dest);
@@ -63,6 +77,8 @@ public sealed class Collector
             }
 
             _log.Moves.Add(new MoveRecord(item.Path, dest, item.ListPosition.X, item.ListPosition.Y));
+            var top = (item.Category ?? "").Split(Path.DirectorySeparatorChar)[0];
+            if (top.Length > 0) Summary[top] = Summary.GetValueOrDefault(top) + 1;
             SaveLog(); // zapis po każdym ruchu – cofanie działa nawet po awarii
             return dest;
         }
@@ -139,6 +155,7 @@ public sealed class Collector
                 else if (File.Exists(m.Destination)) File.Move(m.Destination, m.Source);
                 else { failed++; continue; }
                 restored.Add((m.Source, new POINT(m.X, m.Y)));
+                DeleteEmptyParents(Path.GetDirectoryName(m.Destination), Path.GetDirectoryName(log.SessionFolder));
             }
             catch (Exception)
             {
@@ -154,6 +171,86 @@ public sealed class Collector
             try { File.Delete(logFile); } catch (Exception) { /* zostawiamy dziennik */ }
         }
         return restored;
+    }
+
+    /// <summary>Usuwa puste foldery od <paramref name="dir"/> w górę, aż do <paramref name="stopAt"/> (bez niego).</summary>
+    private static void DeleteEmptyParents(string? dir, string? stopAt)
+    {
+        while (dir is not null && stopAt is not null &&
+               dir.StartsWith(stopAt + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            if (!Directory.Exists(dir) || Directory.EnumerateFileSystemEntries(dir).Any()) return;
+            TryDeleteEmpty(dir);
+            dir = Path.GetDirectoryName(dir);
+        }
+    }
+
+    private static readonly System.Text.RegularExpressions.Regex DateFolder =
+        new(@"^\d{4}-\d{2}-\d{2} \d{2}\.\d{2}\.\d{2}$");
+
+    /// <summary>
+    /// Sortuje wcześniej zebrane foldery „z datą” (stary układ) do folderów wg typu.
+    /// Aktualizuje dzienniki historii, żeby „Cofnij” dalej trafiało w dobre miejsca. Zwraca liczbę przeniesionych.
+    /// </summary>
+    public static int ReorganizeDateFolders(AppSettings settings, out int failed)
+    {
+        failed = 0;
+        var collector = new Collector(settings);
+        var baseFolder = collector.BaseFolder;
+        if (!Directory.Exists(baseFolder)) return 0;
+
+        var moved = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var dateDir in Directory.GetDirectories(baseFolder).Where(d => DateFolder.IsMatch(Path.GetFileName(d))))
+        {
+            foreach (var entry in Directory.GetFileSystemEntries(dateDir))
+            {
+                try
+                {
+                    var rel = Categorizer.RelativeFolder(entry, settings.SortByTopic);
+                    var targetDir = Path.Combine(baseFolder, rel);
+                    Directory.CreateDirectory(targetDir);
+                    var dest = UniquePath(Path.Combine(targetDir, Path.GetFileName(entry)));
+                    if (Directory.Exists(entry)) Directory.Move(entry, dest);
+                    else File.Move(entry, dest);
+                    moved[entry] = dest;
+                }
+                catch (Exception)
+                {
+                    failed++;
+                }
+            }
+            TryDeleteEmpty(dateDir);
+        }
+
+        // dzienniki: stare ścieżki docelowe → nowe
+        if (moved.Count > 0 && Directory.Exists(AppPaths.HistoryDir))
+        {
+            foreach (var file in Directory.GetFiles(AppPaths.HistoryDir, "*.json"))
+            {
+                try
+                {
+                    var log = JsonSerializer.Deserialize<CleanupLog>(File.ReadAllText(file));
+                    if (log is null) continue;
+                    bool changed = false;
+                    for (int i = 0; i < log.Moves.Count; i++)
+                    {
+                        if (moved.TryGetValue(log.Moves[i].Destination, out var nd))
+                        {
+                            log.Moves[i] = log.Moves[i] with { Destination = nd };
+                            changed = true;
+                        }
+                    }
+                    if (!changed) continue;
+                    log.SessionFolder = Path.Combine(baseFolder, Path.GetFileName(log.SessionFolder));
+                    File.WriteAllText(file, JsonSerializer.Serialize(log, new JsonSerializerOptions { WriteIndented = true }));
+                }
+                catch (Exception)
+                {
+                    // uszkodzony dziennik – pomijamy
+                }
+            }
+        }
+        return moved.Count;
     }
 
     public static long SizeOf(string path)

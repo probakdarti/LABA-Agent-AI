@@ -261,7 +261,7 @@ public partial class App : Application
     private void OnCleaningFinished()
     {
         if (Controller.IsBackgroundRun || !Panel.IsVisible)
-            Notifications.Finished(Controller.Collected, Controller.Skipped, Controller.LastProblem);
+            Notifications.Finished(Controller.Collected, Controller.Skipped, Controller.LastProblem, Controller.SummaryText);
     }
 
     // ------------------------------------------------------------------ okna i menu

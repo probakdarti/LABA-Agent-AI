@@ -101,6 +101,19 @@
           </StackPanel>
         </Border>
 
+        <!-- PORZĄDKOWANIE -->
+        <Border Style="{StaticResource SettingsCard}">
+          <StackPanel>
+            <TextBlock Text="Porządkowanie zebranych" Style="{StaticResource Header}"/>
+            <CheckBox x:Name="SortByTypeBox" Content="Dziel zebrane wg typu: Skróty programów, Word, Excel, PDF, Zdjęcia, Filmy…"/>
+            <CheckBox x:Name="SortByTopicBox" Content="Podfoldery wg nazwy: Umowy, Faktury, Oferty, Zamówienia, Raporty…" Margin="22,0,14,6"/>
+            <TextBlock Style="{StaticResource Hint}"
+                       Text="Np. „Umowa najmu.docx” → Word\Umowy, „Invoice 12.pdf” → PDF\Faktury, „Screenshot.png” → Zdjęcia\Zrzuty ekranu. Słowa rozpoznawane są w wielu językach (umowa, contract, Vertrag, contrat, договор…). Wyłączone = jak dawniej, folder z datą sprzątania."/>
+            <Button Content="Posortuj wcześniej zebrane (foldery z datami)" Style="{StaticResource PillButton}" Padding="10,6"
+                    HorizontalAlignment="Left" Click="OnReorganize"/>
+          </StackPanel>
+        </Border>
+
         <!-- CHRONIONE -->
         <Border Style="{StaticResource SettingsCard}">
           <StackPanel>

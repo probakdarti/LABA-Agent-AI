@@ -70,6 +70,11 @@ public partial class SettingsWindow : Window
         FillDays(AutoDaysPanel, _settings.AutoCleanDays);
         AutoQuietBox.IsChecked = _settings.AutoCleanQuiet;
 
+        SortByTypeBox.IsChecked = _settings.SortByType;
+        SortByTopicBox.IsChecked = _settings.SortByTopic;
+        SortByTopicBox.IsEnabled = _settings.SortByType;
+        SortByTypeBox.Click += (_, _) => SortByTopicBox.IsEnabled = SortByTypeBox.IsChecked == true;
+
         ReloadProtected();
         ExclusionsBox.Text = string.Join(", ", _settings.Exclusions);
         MenuOnlyDesktopBox.IsChecked = _settings.ContextMenuOnlyOnDesktop;
@@ -276,6 +281,8 @@ public partial class SettingsWindow : Window
         _settings.AutoCleanTime = $"{(int)autoTs.TotalHours:00}:{autoTs.Minutes:00}";
         _settings.AutoCleanDays = ReadDays(AutoDaysPanel);
         _settings.AutoCleanQuiet = AutoQuietBox.IsChecked == true;
+        _settings.SortByType = SortByTypeBox.IsChecked == true;
+        _settings.SortByTopic = SortByTopicBox.IsChecked == true;
 
         _settings.Exclusions = ExclusionsBox.Text
             .Split(new[] { ',', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
@@ -290,4 +297,32 @@ public partial class SettingsWindow : Window
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => Close();
+
+    private void OnReorganize(object sender, RoutedEventArgs e)
+    {
+        if (_controller.IsRunning)
+        {
+            SaveInfo.Text = "Poczekaj, aż robot skończy sprzątanie.";
+            return;
+        }
+        // sortujemy wg tego, co jest zaznaczone teraz (nawet bez „Zapisz”)
+        var temp = new AppSettings
+        {
+            CollectionFolderName = _settings.CollectionFolderName,
+            SortByType = true,
+            SortByTopic = SortByTopicBox.IsChecked == true,
+        };
+        Cursor = System.Windows.Input.Cursors.Wait;
+        try
+        {
+            int n = Collector.ReorganizeDateFolders(temp, out int failed);
+            SaveInfo.Text = n == 0 && failed == 0
+                ? "Nie ma folderów z datami do posortowania."
+                : $"Posortowano {n} {Notifications.Plural(n)}." + (failed > 0 ? $" Nie udało się: {failed} (plik otwarty?)." : "");
+        }
+        finally
+        {
+            Cursor = null;
+        }
+    }
 }

@@ -43,6 +43,9 @@ public sealed class DesktopItem
 
     public string? MovedTo { get; set; }
 
+    /// <summary>Folder docelowy względem „Zebrane z pulpitu”, np. „PDF\Faktury” (do podpisu w animacji).</summary>
+    public string? Category { get; set; }
+
     public static ItemKind Classify(string path)
     {
         if (Directory.Exists(path)) return ItemKind.Folder;
@@ -71,6 +74,11 @@ public sealed class AppSettings
     public List<string> ProtectedPaths { get; set; } = new();
 
     public string CollectionFolderName { get; set; } = "Zebrane z pulpitu";
+
+    /// <summary>Zebrane dzielone na foldery wg typu (Word, PDF, Zdjęcia…) zamiast wg daty sprzątania.</summary>
+    public bool SortByType { get; set; } = true;
+    /// <summary>Dodatkowo podfoldery tematyczne wg słów w nazwie (Umowy, Faktury, Oferty…).</summary>
+    public bool SortByTopic { get; set; } = true;
 
     /// <summary>Pozycja „Nie odkurzaj!” w menu kontekstowym tylko dla elementów pulpitu.</summary>
     public bool ContextMenuOnlyOnDesktop { get; set; } = true;

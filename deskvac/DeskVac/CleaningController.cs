@@ -76,6 +76,11 @@ public sealed class CleaningController : IDisposable
     public int Skipped { get; private set; }
     public long CollectedBytes => Interlocked.Read(ref _bytes);
     public string? LastProblem { get; private set; }
+
+    /// <summary>Np. „Word 3 · PDF 2 · Zdjęcia 5” – co trafiło gdzie przy ostatnim sprzątaniu.</summary>
+    public string SummaryText => _collector is null || _collector.Summary.Count == 0
+        ? ""
+        : string.Join(" · ", _collector.Summary.OrderByDescending(kv => kv.Value).Select(kv => $"{kv.Key} {kv.Value}"));
     public string CollectionFolder => new Collector(_settings).BaseFolder;
     public IReadOnlyList<MonitorInfo> MonitorList => _monitors;
     public Rect World => _world;

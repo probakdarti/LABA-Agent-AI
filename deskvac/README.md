@@ -74,6 +74,29 @@ Pozycje są w klasycznym menu (Windows 11 dopuszcza do skróconego menu tylko po
 Przebieg sprzątania: **wyjazd ze stacji → skan lidarem (wykrywanie ikon) → sprzątanie
 (najbliższa ikona, robot zbiera też wszystko, przez co przejeżdża) → powrót → dokowanie i ładowanie.**
 
+## Porządkowanie zebranych
+
+Zebrane elementy trafiają do folderów **wg typu**, a dokumenty dodatkowo **wg tematu z nazwy pliku**:
+
+```
+Zebrane z pulpitu\
+├─ Skróty programów, Skróty do folderów, Skróty do dokumentów, Skróty internetowe
+├─ Word\Umowy, Word\Faktury, Word\Oferty…   Excel\…   PowerPoint\…   PDF\…   Teksty\…
+├─ Zdjęcia (\Zrzuty ekranu, \Skany)   Filmy   Muzyka   Archiwa   Instalatory   E-maile
+├─ Grafika i projekty   CAD   Kod   Pulpit zdalny (RDP)   Bazy danych   Czcionki
+└─ Foldery   Inne
+```
+
+Tematy: Umowy, Faktury, Oferty, Zamówienia, Protokoły, Raporty, Cenniki, Instrukcje, CV, Certyfikaty,
+Wnioski i pisma, Podatki, Wyciągi bankowe, Zrzuty ekranu, Skany. Słowa są rozpoznawane bez względu na
+polskie znaki, odmianę i język (PL, EN, DE, FR, ES, IT, CZ/SK, NL, HU, TR, RU/UA) – np. *umowa, umowie,
+contract, agreement, Vertrag, contrat, contrato, договор* → **Umowy**. Skróty `.lnk` są dzielone wg tego,
+na co wskazują. Nazwa kategorii pojawia się pod ikoną w animacji zasysania, a po sprzątaniu – podsumowanie
+(np. „PDF 3 · Word 2 · Zdjęcia 5”).
+
+W Ustawieniach → *Porządkowanie zebranych* można wyłączyć podział (wtedy jak dawniej: folder z datą)
+i jednym przyciskiem posortować wcześniej zebrane foldery z datami. „Cofnij” działa także po sortowaniu.
+
 ## Dźwięk
 
 | Moment | Dźwięk |
