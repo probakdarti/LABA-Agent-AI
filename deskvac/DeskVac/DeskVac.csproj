@@ -13,7 +13,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>DeskVac</AssemblyName>
     <RootNamespace>DeskVac</RootNamespace>
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <ApplicationIcon>Assets\DeskVac.ico</ApplicationIcon>
     <Product>DeskVac</Product>
     <AssemblyTitle>DeskVac – robot-odkurzacz pulpitu</AssemblyTitle>

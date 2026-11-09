@@ -7,8 +7,12 @@ on:
       - ".github/workflows/deskvac.yml"
   workflow_dispatch:
 
+# minimalne uprawnienia tokenu GITHUB_TOKEN: budowanie potrzebuje tylko odczytu repozytorium
+permissions:
+  contents: read
+
 env:
-  DESKVAC_VERSION: "1.1.${{ github.run_number }}"
+  DESKVAC_VERSION: "1.2.${{ github.run_number }}"
   # podpis cyfrowy włącza się sam, gdy w Settings → Secrets są SIGNING_PFX_BASE64 i SIGNING_PFX_PASSWORD
   HAS_CERT: ${{ secrets.SIGNING_PFX_BASE64 != '' }}
 

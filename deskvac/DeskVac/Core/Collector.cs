@@ -187,6 +187,7 @@ public sealed class Collector
         {
             try
             {
+                if (!IsTrustedMove(log, m)) { failed++; continue; }
                 if (File.Exists(m.Source) || Directory.Exists(m.Source)) { failed++; continue; }
                 if (Directory.Exists(m.Destination)) Directory.Move(m.Destination, m.Source);
                 else if (File.Exists(m.Destination)) File.Move(m.Destination, m.Source);
@@ -212,6 +213,48 @@ public sealed class Collector
             try { File.Delete(logFile); } catch (Exception) { /* zostawiamy dziennik */ }
         }
         return restored;
+    }
+
+    /// <summary>
+    /// Ochrona przed zmienionym (podrobionym) dziennikiem: cofamy tylko przeniesienia, które robot mógł sam wykonać –
+    /// z pulpitu do „Zebrane z pulpitu” albo w obrębie sprzątanego folderu (bez „..” i innych dysków).
+    /// </summary>
+    private static bool IsTrustedMove(CleanupLog log, MoveRecord m)
+    {
+        try
+        {
+            var src = Path.GetFullPath(m.Source);
+            var dst = Path.GetFullPath(m.Destination);
+            var srcParent = Path.TrimEndingDirectorySeparator(Path.GetDirectoryName(src) ?? "");
+
+            static bool Under(string path, string root) =>
+                root.Length > 0 && path.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            static bool Same(string a, string b) =>
+                string.Equals(Path.TrimEndingDirectorySeparator(a), Path.TrimEndingDirectorySeparator(b), StringComparison.OrdinalIgnoreCase);
+
+            if (log.IsFolder)
+            {
+                var root = Path.GetFullPath(log.RootFolder ?? "");
+                if (KnownFolders.WhyForbidden(root) is not null) return false;
+                // plik wraca do sprzątanego folderu (bezpośrednio), z jego podfolderu kategorii
+                return Same(srcParent, root) && Under(dst, root);
+            }
+
+            var desktops = new[]
+            {
+                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+                Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory),
+            }.Where(d => !string.IsNullOrEmpty(d)).ToList();
+            var baseFolder = Path.GetDirectoryName(Path.GetFullPath(log.SessionFolder)) ?? "";
+            // plik wraca na pulpit, z folderu „Zebrane z pulpitu”, który sam leży na pulpicie
+            return desktops.Any(d => Same(srcParent, d))
+                   && desktops.Any(d => Same(Path.GetDirectoryName(baseFolder) ?? "", d))
+                   && Under(dst, baseFolder);
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     /// <summary>Usuwa puste foldery od <paramref name="dir"/> w górę, aż do <paramref name="stopAt"/> (bez niego).</summary>

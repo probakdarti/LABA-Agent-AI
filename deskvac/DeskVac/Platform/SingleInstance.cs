@@ -12,6 +12,8 @@ public sealed class SingleInstance : IDisposable
     private static readonly string Id = "DeskVac-" + Environment.UserName;
     private readonly Mutex _mutex;
     private readonly CancellationTokenSource _cts = new();
+    private const int MaxPayload = 64 * 1024;
+    private const int MaxArgs = 64;
 
     private SingleInstance(Mutex mutex) => _mutex = mutex;
 
@@ -32,7 +34,9 @@ public sealed class SingleInstance : IDisposable
         {
             try
             {
-                using var client = new NamedPipeClientStream(".", Id, PipeDirection.Out);
+                // CurrentUserOnly: łączymy się tylko z potokiem utworzonym przez to samo konto Windows
+                // (inne konto na komputerze nie podszyje się pod DeskVac i nie odczyta przesyłanych ścieżek)
+                using var client = new NamedPipeClientStream(".", Id, PipeDirection.Out, PipeOptions.CurrentUserOnly);
                 client.Connect(500);
                 var bytes = Encoding.UTF8.GetBytes(payload);
                 client.Write(bytes, 0, bytes.Length);
@@ -56,11 +60,23 @@ public sealed class SingleInstance : IDisposable
             {
                 try
                 {
-                    using var server = new NamedPipeServerStream(Id, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                    // CurrentUserOnly: potok dostępny wyłącznie dla bieżącego użytkownika
+                    using var server = new NamedPipeServerStream(Id, PipeDirection.In, 1, PipeTransmissionMode.Byte,
+                        PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly);
                     await server.WaitForConnectionAsync(_cts.Token);
-                    using var reader = new StreamReader(server, Encoding.UTF8);
-                    var text = await reader.ReadToEndAsync();
-                    var args = text.Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+                    // limit: polecenia to krótkie argumenty i ścieżki – większe dane odrzucamy
+                    var buffer = new byte[MaxPayload + 1];
+                    int total = 0, read;
+                    while (total <= MaxPayload && (read = await server.ReadAsync(buffer.AsMemory(total, buffer.Length - total), _cts.Token)) > 0)
+                        total += read;
+                    if (total > MaxPayload) continue;
+
+                    var args = Encoding.UTF8.GetString(buffer, 0, total)
+                        .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                        .Take(MaxArgs)
+                        .Where(a => a.Length <= 1024)
+                        .ToArray();
                     if (args.Length > 0) onArgs(args);
                 }
                 catch (OperationCanceledException)
