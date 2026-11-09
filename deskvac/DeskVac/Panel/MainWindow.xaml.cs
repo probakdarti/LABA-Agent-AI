@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Interop;
@@ -10,41 +11,71 @@ namespace DeskVac.Panel;
 
 public partial class MainWindow : Window
 {
-    private readonly AppSettings _settings = AppSettings.Load();
+    private readonly AppSettings _settings;
     private readonly CleaningController _controller;
     private readonly DispatcherTimer _ui = new() { Interval = TimeSpan.FromMilliseconds(33) };
+    private bool _loading = true;
 
-    public MainWindow()
+    /// <summary>Prawdziwe zamknięcie (z menu „Zakończ”), a nie schowanie do zasobnika.</summary>
+    public bool AllowClose { get; set; }
+
+    public MainWindow(AppSettings settings, CleaningController controller)
     {
         InitializeComponent();
-        _controller = new CleaningController(this);
+        _settings = settings;
+        _controller = controller;
         _controller.Finished += OnFinished;
+        Map.Controller = controller;
 
-        ShortcutsBox.IsChecked = _settings.CollectShortcuts;
-        FilesBox.IsChecked = _settings.CollectFiles;
-        FoldersBox.IsChecked = _settings.CollectFolders;
-        MinimizeBox.IsChecked = _settings.MinimizeWindows;
-        SoundBox.IsChecked = _settings.PlaySounds;
-        VolumeSlider.Value = _settings.Volume;
-        SoundBox.Click += (_, _) => { SaveSettings(); _controller.ApplySoundSettings(_settings); };
-        VolumeSlider.ValueChanged += (_, _) => { _settings.Volume = VolumeSlider.Value; _controller.ApplySoundSettings(_settings); };
-        _controller.ApplySoundSettings(_settings);
-        ExclusionsBox.Text = string.Join(", ", _settings.Exclusions);
+        LoadQuickSettings();
+        ShortcutsBox.Click += (_, _) => SaveQuickSettings();
+        FilesBox.Click += (_, _) => SaveQuickSettings();
+        FoldersBox.Click += (_, _) => SaveQuickSettings();
+        MinimizeBox.Click += (_, _) => SaveQuickSettings();
+        SoundBox.Click += (_, _) => SaveQuickSettings();
+        VolumeSlider.ValueChanged += (_, _) => SaveQuickSettings();
 
         SourceInitialized += (_, _) => UseDarkTitleBar();
         Loaded += (_, _) => PlaceNearDock();
-        Closing += (_, _) => SaveSettings();
-        Closed += (_, _) => _controller.Dispose();
+        IsVisibleChanged += (_, _) =>
+        {
+            if (IsVisible) { LoadQuickSettings(); _ui.Start(); }
+            else _ui.Stop(); // schowany panel nie zużywa CPU
+        };
 
         _ui.Tick += (_, _) => RefreshUi();
-        _ui.Start();
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        SaveQuickSettings();
+        if (!AllowClose && _settings.CloseToTray)
+        {
+            e.Cancel = true;
+            Hide();
+            return;
+        }
+        if (!AllowClose)
+        {
+            e.Cancel = true;
+            ((App)Application.Current).ExitApp();
+            return;
+        }
+        base.OnClosing(e);
+    }
+
+    public void ShowPanel()
+    {
+        if (!IsVisible) Show();
+        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+        Activate();
     }
 
     private void PlaceNearDock()
     {
         var wa = SystemParameters.WorkArea;
         Left = wa.Right - ActualWidth - 24;
-        Top = Math.Max(wa.Top + 24, wa.Bottom - ActualHeight - 130);
+        Top = Math.Max(wa.Top + 24, wa.Bottom - ActualHeight - 150);
     }
 
     private void UseDarkTitleBar()
@@ -61,29 +92,42 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SaveSettings()
+    public void LoadQuickSettings()
     {
+        _loading = true;
+        ShortcutsBox.IsChecked = _settings.CollectShortcuts;
+        FilesBox.IsChecked = _settings.CollectFiles;
+        FoldersBox.IsChecked = _settings.CollectFolders;
+        MinimizeBox.IsChecked = _settings.MinimizeWindows;
+        SoundBox.IsChecked = _settings.PlaySounds;
+        VolumeSlider.Value = _settings.Volume;
+        _loading = false;
+    }
+
+    private void SaveQuickSettings()
+    {
+        if (_loading) return;
         _settings.CollectShortcuts = ShortcutsBox.IsChecked == true;
         _settings.CollectFiles = FilesBox.IsChecked == true;
         _settings.CollectFolders = FoldersBox.IsChecked == true;
         _settings.MinimizeWindows = MinimizeBox.IsChecked == true;
         _settings.PlaySounds = SoundBox.IsChecked == true;
         _settings.Volume = VolumeSlider.Value;
-        _settings.Exclusions = ExclusionsBox.Text
-            .Split(new[] { ',', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .ToList();
         _settings.Save();
+        _controller.ApplySoundSettings();
     }
 
-    private void OnStart(object sender, RoutedEventArgs e)
+    private void OnStart(object sender, RoutedEventArgs e) => StartCleaning();
+
+    public void StartCleaning()
     {
-        SaveSettings();
+        SaveQuickSettings();
         ShowProblem(null);
         try
         {
-            _controller.Start(_settings);
-            Map.Stage = _controller.Stage;
-            Topmost = true;
+            int n = _controller.Start(background: false);
+            if (n == 0) ShowProblem("Pulpit jest już czysty – nie ma czego zbierać 🎉");
+            else Topmost = true;
         }
         catch (Exception ex)
         {
@@ -97,9 +141,13 @@ public partial class MainWindow : Window
 
     private void OnUndo(object sender, RoutedEventArgs e) => ShowProblem(_controller.UndoLast());
 
-    private void OnOpenFolder(object sender, RoutedEventArgs e)
+    private void OnOpenFolder(object sender, RoutedEventArgs e) => OpenCollectionFolder();
+
+    private void OnSettings(object sender, RoutedEventArgs e) => ((App)Application.Current).ShowSettings();
+
+    public void OpenCollectionFolder()
     {
-        var folder = _controller.CollectionFolder ?? new Collector(_settings).BaseFolder;
+        var folder = _controller.CollectionFolder;
         if (!Directory.Exists(folder))
         {
             ShowProblem("Folder jeszcze nie istnieje – powstanie przy pierwszym sprzątaniu.");
@@ -116,7 +164,7 @@ public partial class MainWindow : Window
         ShowProblem(_controller.Skipped > 0 ? msg : null);
     }
 
-    private void ShowProblem(string? text)
+    public void ShowProblem(string? text)
     {
         ProblemText.Text = text ?? "";
         ProblemText.Visibility = string.IsNullOrEmpty(text) ? Visibility.Collapsed : Visibility.Visible;
@@ -128,36 +176,34 @@ public partial class MainWindow : Window
         bool running = _controller.IsRunning;
 
         StartButton.IsEnabled = !running;
-        bool parking = stage?.Phase is RobotPhase.Returning or RobotPhase.Docking or RobotPhase.Emptying;
+        bool parking = stage.Phase is RobotPhase.Returning or RobotPhase.Docking or RobotPhase.Emptying;
         PauseButton.IsEnabled = running && !parking;
         StopButton.IsEnabled = running && !parking;
         UndoButton.IsEnabled = !running;
-        PauseButton.Content = stage?.Paused == true ? "Wznów" : "Pauza";
+        PauseButton.Content = stage.Paused ? "Wznów" : "Pauza";
 
-        double battery = stage?.Battery ?? 100;
-        BatteryFill.Width = Math.Max(0, BatteryTrack.ActualWidth * battery / 100);
-        BatteryText.Text = $"{battery:0}%";
-
-        double bin = stage?.BinLevel ?? 0;
-        BinFill.Width = Math.Max(0, BinTrack.ActualWidth * bin);
-        BinText.Text = $"{bin * 100:0}%";
+        BatteryFill.Width = Math.Max(0, BatteryTrack.ActualWidth * stage.Battery / 100);
+        BatteryText.Text = $"{stage.Battery:0}%";
+        BinFill.Width = Math.Max(0, BinTrack.ActualWidth * stage.BinLevel);
+        BinText.Text = $"{stage.BinLevel * 100:0}%";
 
         CountText.Text = _controller.Collected.ToString();
         CountSub.Text = _controller.Total > 0 ? $"z {_controller.Total} elementów" : "zebranych elementów";
         SizeText.Text = Collector.FormatSize(_controller.CollectedBytes);
 
-        StatusText.Text = stage is null ? "W stacji dokującej" : (stage.Paused ? "Pauza" : stage.Phase switch
+        StatusText.Text = stage.Paused ? "Pauza" : stage.Phase switch
         {
             RobotPhase.Docked => "W stacji dokującej",
             RobotPhase.Undocking => "Wyjeżdżam ze stacji…",
-            RobotPhase.Scanning => "Skanuję pulpit lidarem…",
-            RobotPhase.Cleaning => $"Sprzątam pulpit – zostało {stage.Items.Count(i => i.State == ItemState.Discovered)}",
+            RobotPhase.Scanning => "Skanuję pulpity lidarem…",
+            RobotPhase.Cleaning => $"Sprzątam – zostało {stage.Items.Count(i => i.State == ItemState.Discovered)}",
             RobotPhase.Returning => "Wracam do bazy…",
             RobotPhase.Docking => "Parkuję w stacji…",
             RobotPhase.Emptying => "Stacja opróżnia pojemnik…",
             RobotPhase.Done => stage.Battery < 100 ? "Ładuję się – pulpit czysty ✨" : "Pulpit czysty ✨",
             _ => "",
-        });
+        };
+        if (running && _controller.IsBackgroundRun) StatusText.Text += " (w tle)";
 
         Map.InvalidateVisual();
     }

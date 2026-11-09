@@ -5,14 +5,15 @@ using DeskVac.Overlay;
 
 namespace DeskVac.Panel;
 
-/// <summary>Podgląd „mapy” pulpitu w panelu: wykryte elementy, robot, wiązka lidaru, stacja.</summary>
+/// <summary>Mapa wszystkich monitorów w panelu: wykryte elementy, chronione, robot, wiązka lidaru, stacja.</summary>
 public sealed class MiniMap : FrameworkElement
 {
-    public Stage? Stage { get; set; }
+    public CleaningController? Controller { get; set; }
 
     private static readonly Brush BgBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x10, 0x13, 0x17)));
-    private static readonly Pen GridPen = Freeze(new Pen(new SolidColorBrush(Color.FromArgb(18, 255, 255, 255)), 1));
-    private static readonly Pen ScreenPen = Freeze(new Pen(new SolidColorBrush(Color.FromArgb(50, 255, 255, 255)), 1));
+    private static readonly Brush DotBrush = Freeze(new SolidColorBrush(Color.FromArgb(18, 255, 255, 255)));
+    private static readonly Brush ScreenFill = Freeze(new SolidColorBrush(Color.FromArgb(10, 255, 255, 255)));
+    private static readonly Pen ScreenPen = Freeze(new Pen(new SolidColorBrush(Color.FromArgb(55, 255, 255, 255)), 1));
 
     protected override void OnRender(DrawingContext dc)
     {
@@ -20,35 +21,36 @@ public sealed class MiniMap : FrameworkElement
         dc.DrawRoundedRectangle(BgBrush, null, new Rect(size), 12, 12);
         for (double x = 12; x < size.Width; x += 16)
             for (double y = 12; y < size.Height; y += 16)
-                dc.DrawRectangle(GridPen.Brush, null, new Rect(x, y, 1, 1));
+                dc.DrawRectangle(DotBrush, null, new Rect(x, y, 1, 1));
 
-        double vw = SystemParameters.VirtualScreenWidth, vh = SystemParameters.VirtualScreenHeight;
+        var c = Controller;
+        if (c is null || c.World.Width <= 0) return;
+        var world = c.World;
+        var stage = c.Stage;
+
         double pad = 12;
-        double k = Math.Min((size.Width - pad * 2) / vw, (size.Height - pad * 2) / vh);
-        double ox = (size.Width - vw * k) / 2, oy = (size.Height - vh * k) / 2;
-        Point Map(Point p) => new(ox + p.X * k, oy + p.Y * k);
+        double k = Math.Min((size.Width - pad * 2) / world.Width, (size.Height - pad * 2) / world.Height);
+        double ox = (size.Width - world.Width * k) / 2, oy = (size.Height - world.Height * k) / 2;
+        Point Map(Point p) => new(ox + (p.X - world.X) * k, oy + (p.Y - world.Y) * k);
 
-        dc.DrawRoundedRectangle(null, ScreenPen, new Rect(ox, oy, vw * k, vh * k), 6, 6);
-
-        var accent = RobotPainter.Accent;
-        var stage = Stage;
-        if (stage is null)
+        foreach (var m in c.MonitorList)
         {
-            DrawIdleRobot(dc, Map, null);
-            return;
+            var tl = Map(m.Bounds.TopLeft);
+            dc.DrawRoundedRectangle(ScreenFill, ScreenPen, new Rect(tl.X, tl.Y, m.Bounds.Width * k, m.Bounds.Height * k), 4, 4);
         }
 
-        // wiązka lidaru
+        var accent = RobotPainter.Accent;
+
         if (stage.Phase == RobotPhase.Scanning)
         {
-            var c = Map(stage.Position);
+            var center = Map(stage.Position);
             double len = Math.Max(size.Width, size.Height) * 1.5;
             var geo = new StreamGeometry();
             using (var g = geo.Open())
             {
-                g.BeginFigure(c, true, true);
-                g.LineTo(c + new Vector(Math.Cos(stage.ScanAngle - 0.35), Math.Sin(stage.ScanAngle - 0.35)) * len, false, false);
-                g.LineTo(c + new Vector(Math.Cos(stage.ScanAngle), Math.Sin(stage.ScanAngle)) * len, false, false);
+                g.BeginFigure(center, true, true);
+                g.LineTo(center + new Vector(Math.Cos(stage.ScanAngle - 0.35), Math.Sin(stage.ScanAngle - 0.35)) * len, false, false);
+                g.LineTo(center + new Vector(Math.Cos(stage.ScanAngle), Math.Sin(stage.ScanAngle)) * len, false, false);
             }
             geo.Freeze();
             dc.PushClip(new RectangleGeometry(new Rect(size), 12, 12));
@@ -59,18 +61,15 @@ public sealed class MiniMap : FrameworkElement
         foreach (var it in stage.Items)
         {
             var p = Map(it.Center);
-            switch (it.State)
+            Brush? b = it.State switch
             {
-                case ItemState.Discovered:
-                    dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(0xF2, 0xF4, 0xF6)), null, p, 2.6, 2.6);
-                    break;
-                case ItemState.Skipped:
-                    dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(0xFF, 0x6A, 0x6A)), null, p, 2.6, 2.6);
-                    break;
-                case ItemState.Hidden:
-                    dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)), null, p, 2, 2);
-                    break;
-            }
+                ItemState.Discovered => Brushes.WhiteSmoke,
+                ItemState.Skipped => new SolidColorBrush(Color.FromRgb(0xFF, 0x6A, 0x6A)),
+                ItemState.Protected => new SolidColorBrush(RobotPainter.Amber),
+                ItemState.Hidden => new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                _ => null,
+            };
+            if (b is not null) dc.DrawEllipse(b, null, p, 2.3, 2.3);
         }
 
         if (stage.Target is { State: ItemState.Discovered } t)
@@ -79,24 +78,14 @@ public sealed class MiniMap : FrameworkElement
                 Map(stage.Position), Map(t.Center));
         }
 
-        DrawIdleRobot(dc, Map, stage);
-    }
+        var d = Map(stage.DockTop);
+        dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromRgb(0x3A, 0x41, 0x4B)), null, new Rect(d.X - 7, d.Y, 14, 5), 2, 2);
 
-    private static void DrawIdleRobot(DrawingContext dc, Func<Point, Point> map, Stage? stage)
-    {
-        var accent = RobotPainter.Accent;
-        var dockTop = stage?.DockTop ?? OverlayWindow.DefaultDockTop();
-        var pos = stage?.Position ?? new Point(dockTop.X, dockTop.Y - Stage.Radius + 4);
-        double heading = stage?.Heading ?? -Math.PI / 2;
-
-        var d = map(dockTop);
-        dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromRgb(0x3A, 0x41, 0x4B)), null, new Rect(d.X - 9, d.Y, 18, 6), 2, 2);
-
-        var p = map(pos);
-        dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(50, accent.R, accent.G, accent.B)), null, p, 11, 11);
-        dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(0xF4, 0xF6, 0xF8)), new Pen(new SolidColorBrush(accent), 1.5), p, 6, 6);
-        dc.DrawLine(new Pen(new SolidColorBrush(accent), 2) { EndLineCap = PenLineCap.Round }, p,
-            p + new Vector(Math.Cos(heading), Math.Sin(heading)) * 10);
+        var rp = Map(stage.Position);
+        dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(50, accent.R, accent.G, accent.B)), null, rp, 10, 10);
+        dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(0xF4, 0xF6, 0xF8)), new Pen(new SolidColorBrush(accent), 1.5), rp, 5.5, 5.5);
+        dc.DrawLine(new Pen(new SolidColorBrush(accent), 2) { EndLineCap = PenLineCap.Round }, rp,
+            rp + new Vector(Math.Cos(stage.Heading), Math.Sin(stage.Heading)) * 9);
     }
 
     private static T Freeze<T>(T f) where T : Freezable

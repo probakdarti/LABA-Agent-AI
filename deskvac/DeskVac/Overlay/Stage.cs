@@ -8,13 +8,14 @@ namespace DeskVac.Overlay;
 public enum RobotPhase { Docked, Undocking, Scanning, Cleaning, Returning, Docking, Emptying, Done }
 
 /// <summary>
-/// Symulacja robota + rysowanie całej sceny na przezroczystej nakładce.
-/// Współrzędne w DIP względem lewego górnego rogu nakładki (= wirtualnego ekranu).
+/// Symulacja robota + rysowanie całej sceny. Współrzędne „świata” to FIZYCZNE piksele ekranu
+/// (te same co pozycje ikon pulpitu), więc scena obejmuje wszystkie monitory naraz.
+/// Każda nakładka (po jednej na monitor) rysuje swój wycinek – patrz <see cref="SceneView"/>.
 /// </summary>
-public sealed class Stage : FrameworkElement
+public sealed class Stage
 {
     // --- parametry „fizyki” robota ---
-    public const double Radius = 30;
+    public const double BaseRadius = 30;      // promień robota w DIP (na monitorze 100% = px)
     private const double MaxSpeed = 340;      // DIP/s
     private const double Accel = 900;         // DIP/s²
     private const double TurnRate = 6.5;      // rad/s
@@ -52,7 +53,23 @@ public sealed class Stage : FrameworkElement
     public double BinLevel { get; private set; }
 
     public Point DockTop { get; private set; }
-    public Point DockSpot => new(DockTop.X, DockTop.Y - Radius + 4);
+    public Point DockSpot => new(DockTop.X, DockTop.Y - RAt(DockTop) + 4 * ScaleAt(DockTop));
+
+    /// <summary>Skala DPI monitora w danym punkcie świata (1.0 = 100%, 1.5 = 150%).</summary>
+    public Func<Point, double> ScaleAt { get; set; } = _ => 1.0;
+
+    /// <summary>Rozmiar „świata” (wirtualny ekran) w pikselach – do długości wiązki lidaru.</summary>
+    public Size WorldSize { get; set; } = new(1920, 1080);
+
+    /// <summary>Promień robota w pikselach w jego bieżącym miejscu (robot ma ten sam rozmiar „optyczny” na każdym monitorze).</summary>
+    public double R => RAt(Position);
+
+    private double K => R / BaseRadius;
+
+    private double RAt(Point p) => BaseRadius * ScaleAt(p);
+
+    /// <summary>Wywoływane po każdej klatce – nakładki odświeżają wtedy obraz.</summary>
+    public event Action? Invalidated;
 
     /// <summary>Wywoływane, gdy robot wjeżdża w element. Ma przenieść plik i zwrócić true przy sukcesie.</summary>
     public Func<DesktopItem, bool>? CollectHandler { get; set; }
@@ -63,11 +80,19 @@ public sealed class Stage : FrameworkElement
     public event Action<DesktopItem>? ItemCollected;
     public event Action<DesktopItem>? ItemSkipped;
 
-    public Stage()
+    private bool _attached;
+
+    /// <summary>Animacja chodzi tylko wtedy, gdy jakaś nakładka jest widoczna (oszczędza CPU w tle).</summary>
+    public bool Running
     {
-        IsHitTestVisible = false;
-        Loaded += (_, _) => CompositionTarget.Rendering += OnRendering;
-        Unloaded += (_, _) => CompositionTarget.Rendering -= OnRendering;
+        get => _attached;
+        set
+        {
+            if (value == _attached) return;
+            _attached = value;
+            if (value) CompositionTarget.Rendering += OnRendering;
+            else { CompositionTarget.Rendering -= OnRendering; _lastRender = TimeSpan.Zero; }
+        }
     }
 
     public void SetDock(Point dockTop)
@@ -95,7 +120,7 @@ public sealed class Stage : FrameworkElement
         Position = DockSpot;
         Heading = -Math.PI / 2;
         _speed = 0;
-        _undockTarget = new Point(DockSpot.X, DockSpot.Y - Radius * 4.2);
+        _undockTarget = new Point(DockSpot.X, DockSpot.Y - R * 4.2);
         SetPhase(RobotPhase.Undocking);
     }
 
@@ -125,7 +150,27 @@ public sealed class Stage : FrameworkElement
 
         _realTime += dt;
         Update(Paused ? 0 : dt);
-        InvalidateVisual();
+        Invalidated?.Invoke();
+    }
+
+    /// <summary>Ręczne „tyknięcie” (gdy robot stoi przy stacji – wolniejszy zegar zamiast 60 kl./s).</summary>
+    public void Tick(double dt)
+    {
+        _realTime += dt;
+        Update(Paused ? 0 : dt);
+        Invalidated?.Invoke();
+    }
+
+    /// <summary>Podgląd namierzania: pokazuje ramki wokół podanych elementów (bez jazdy robota).</summary>
+    public void ShowPreview(IReadOnlyList<DesktopItem> items)
+    {
+        foreach (var it in items)
+        {
+            if (it.State == ItemState.Hidden) it.State = ItemState.Discovered;
+            it.DiscoveredAt = _realTime;
+        }
+        Items = items;
+        Target = null;
     }
 
     // ------------------------------------------------------------------ symulacja
@@ -149,7 +194,7 @@ public sealed class Stage : FrameworkElement
         {
             case RobotPhase.Undocking:
                 DriveTowards(_undockTarget, dt, MaxSpeed * 0.45, allowReverse: false);
-                if (Distance(Position, _undockTarget) < 4)
+                if (Distance(Position, _undockTarget) < 4 * K)
                 {
                     _scanStart = Heading;
                     SetPhase(RobotPhase.Scanning);
@@ -162,6 +207,8 @@ public sealed class Stage : FrameworkElement
                 {
                     foreach (var it in Items.Where(i => i.State == ItemState.Hidden))
                         Discover(it);
+                    foreach (var it in Items.Where(i => i.State == ItemState.Protected && i.DiscoveredAt < 0))
+                        it.DiscoveredAt = _realTime;
                     SetPhase(RobotPhase.Cleaning);
                 }
                 break;
@@ -172,9 +219,9 @@ public sealed class Stage : FrameworkElement
 
             case RobotPhase.Returning:
             {
-                var approach = new Point(DockSpot.X, DockSpot.Y - Radius * 1.8);
+                var approach = new Point(DockSpot.X, DockSpot.Y - R * 1.8);
                 DriveTowards(approach, dt, MaxSpeed, allowReverse: false);
-                if (Distance(Position, approach) < 5) SetPhase(RobotPhase.Docking);
+                if (Distance(Position, approach) < 5 * K) SetPhase(RobotPhase.Docking);
                 break;
             }
 
@@ -190,7 +237,7 @@ public sealed class Stage : FrameworkElement
                 {
                     Heading = -Math.PI / 2;
                     var d = DockSpot - Position;
-                    double step = Math.Min(d.Length, 70 * dt);
+                    double step = Math.Min(d.Length, 70 * K * dt);
                     if (d.Length > 0.5) Position += d / d.Length * step;
                     else
                     {
@@ -213,7 +260,7 @@ public sealed class Stage : FrameworkElement
                 break;
         }
 
-        if (active && _speed > 5 && dt > 0)
+        if (active && _speed > 5 * K && dt > 0)
         {
             _trail.Add((Position, _realTime));
         }
@@ -238,14 +285,14 @@ public sealed class Stage : FrameworkElement
         BinLevel = Math.Max(0, BinLevel - dt * Math.Max(0.05, 1.6 * (1 - t)) * 0.9);
         double rate = t < 0.75 ? 70 * Math.Sin(Math.Min(1, t / 0.15) * Math.PI / 2) : 70 * (1 - (t - 0.75) / 0.25);
         _emitAcc += rate * dt;
-        var target = new Point(DockTop.X, DockTop.Y + Radius * 0.55);
+        var target = new Point(DockTop.X, DockTop.Y + R * 0.55);
         while (_emitAcc >= 1)
         {
             _emitAcc -= 1;
             double a = _rng.NextDouble() * Math.PI * 2;
             _particles.Add(new Particle
             {
-                P = Position + new Vector(Math.Cos(a), Math.Sin(a)) * Radius * (0.2 + 0.5 * _rng.NextDouble()),
+                P = Position + new Vector(Math.Cos(a), Math.Sin(a)) * R * (0.2 + 0.5 * _rng.NextDouble()),
                 V = new Vector(_rng.NextDouble() * 60 - 30, 40 + _rng.NextDouble() * 60),
                 Life = 0.45 + _rng.NextDouble() * 0.3,
                 Size = 1 + _rng.NextDouble() * 1.8,
@@ -262,11 +309,14 @@ public sealed class Stage : FrameworkElement
         _turretAngle = ScanAngle;
         foreach (var it in Items)
         {
-            if (it.State != ItemState.Hidden) continue;
+            bool prot = it.State == ItemState.Protected;
+            if (it.State != ItemState.Hidden && !(prot && it.DiscoveredAt < 0)) continue;
             var v = it.Center - Position;
             double a = NormalizeAngle(Math.Atan2(v.Y, v.X) - _scanStart);
             if (a < 0) a += Math.PI * 2;
-            if (a <= progress * Math.PI * 2) Discover(it);
+            if (a > progress * Math.PI * 2) continue;
+            if (prot) it.DiscoveredAt = _realTime;
+            else Discover(it);
         }
     }
 
@@ -285,7 +335,7 @@ public sealed class Stage : FrameworkElement
         foreach (var it in Items)
         {
             if (it.State != ItemState.Discovered) continue;
-            if (Distance(Position, it.Center) < Radius * 0.95) Collect(it);
+            if (Distance(Position, it.Center) < R * 0.95) Collect(it);
         }
 
         if (Target is null || Target.State != ItemState.Discovered)
@@ -345,7 +395,7 @@ public sealed class Stage : FrameworkElement
             p.V *= Math.Pow(0.08, dt);                           // tłumienie
             p.P += p.V * dt;
             p.Age += dt;
-            if (toTarget.Length < (p.Target is null ? Radius * 0.4 : 6)) p.Age = p.Life;
+            if (toTarget.Length < (p.Target is null ? R * 0.4 : 6)) p.Age = p.Life;
         }
         _particles.RemoveAll(p => p.Age >= p.Life);
         _sprites.RemoveAll(s => _realTime - s.Start > s.Duration);
@@ -354,6 +404,8 @@ public sealed class Stage : FrameworkElement
     private void DriveTowards(Point target, double dt, double maxSpeed, bool allowReverse, bool stopAtTarget = true)
     {
         if (dt <= 0) return;
+        maxSpeed *= K;
+        double accel = Accel * K;
         var d = target - Position;
         double dist = d.Length;
         double desired = Math.Atan2(d.Y, d.X);
@@ -364,7 +416,7 @@ public sealed class Stage : FrameworkElement
         double factor = Math.Abs(diff) > 1.0 ? 0 : Math.Cos(diff);
         double wanted = maxSpeed * factor;
         if (stopAtTarget) wanted = Math.Min(wanted, dist * 3.2);
-        _speed += Math.Clamp(wanted - _speed, -Accel * 1.6 * dt, Accel * dt);
+        _speed += Math.Clamp(wanted - _speed, -accel * 1.6 * dt, accel * dt);
         _speed = Math.Max(0, _speed);
 
         double step = _speed * dt;
@@ -374,11 +426,9 @@ public sealed class Stage : FrameworkElement
 
     // ------------------------------------------------------------------ rysowanie
 
-    protected override void OnRender(DrawingContext dc)
+    /// <summary>Rysuje całą scenę we współrzędnych świata (piksele). Nakładka ustawia transformację na swój monitor.</summary>
+    public void Draw(DrawingContext dc)
     {
-        // przezroczyste tło, ale wypełnione – bez tego WPF może nie odświeżać całej powierzchni
-        dc.DrawRectangle(Brushes.Transparent, null, new Rect(RenderSize));
-
         DrawTrail(dc);
         DrawDiscoveryMarks(dc);
         if (Phase == RobotPhase.Scanning) DrawLidar(dc);
@@ -387,7 +437,7 @@ public sealed class Stage : FrameworkElement
         bool charging = Phase is RobotPhase.Done or RobotPhase.Docked;
         bool emptying = Phase == RobotPhase.Emptying;
         if (emptying) DrawDockGlow(dc);
-        RobotPainter.DrawDock(dc, DockTop, Radius, charging || emptying, emptying ? 0.5 + 0.5 * Math.Sin(_realTime * 14) : pulse);
+        RobotPainter.DrawDock(dc, DockTop, R, charging || emptying, emptying ? 0.5 + 0.5 * Math.Sin(_realTime * 14) : pulse);
 
         if (Target is not null && Phase == RobotPhase.Cleaning && Target.State == ItemState.Discovered)
             DrawTargetLock(dc, Target);
@@ -397,7 +447,7 @@ public sealed class Stage : FrameworkElement
 
         var led = Paused ? RobotPainter.Amber : charging ? RobotPainter.Charge : RobotPainter.Accent;
         double ledPulse = Paused || charging ? pulse : emptying ? 0.5 + 0.5 * Math.Sin(_realTime * 14) : 0.85 + 0.15 * pulse;
-        RobotPainter.DrawRobot(dc, Position, Heading, Radius, _brushAngle, _turretAngle, led, ledPulse);
+        RobotPainter.DrawRobot(dc, Position, Heading, R, _brushAngle, _turretAngle, led, ledPulse);
 
         DrawSkips(dc);
     }
@@ -407,15 +457,15 @@ public sealed class Stage : FrameworkElement
         double t = _phaseTime / EmptyDuration;
         double k = Math.Sin(Math.Clamp(t, 0, 1) * Math.PI);
         var c = RobotPainter.Accent;
-        var center = new Point(DockTop.X, DockTop.Y + Radius * 0.5);
+        var center = new Point(DockTop.X, DockTop.Y + R * 0.5);
         var glow = new RadialGradientBrush(Color.FromArgb((byte)(120 * k), c.R, c.G, c.B), Color.FromArgb(0, c.R, c.G, c.B));
-        dc.DrawEllipse(glow, null, center, Radius * 2.2, Radius * 1.4);
+        dc.DrawEllipse(glow, null, center, R * 2.2, R * 1.4);
 
         // pierścienie „ciągu powietrza” w stacji
         for (int i = 0; i < 3; i++)
         {
             double ph = (_realTime * 2.2 + i / 3.0) % 1;
-            double r = Radius * (1.1 - 0.8 * ph);
+            double r = R * (1.1 - 0.8 * ph);
             var pen = new Pen(new SolidColorBrush(Color.FromArgb((byte)(110 * k * ph), c.R, c.G, c.B)), 1.5);
             dc.DrawEllipse(null, pen, Position, r, r);
         }
@@ -428,7 +478,7 @@ public sealed class Stage : FrameworkElement
             double age = _realTime - _trail[i].T;
             byte a = (byte)Math.Clamp(38 * (1 - age / 1.6), 0, 38);
             if (a == 0) continue;
-            var pen = new Pen(new SolidColorBrush(Color.FromArgb(a, 255, 255, 255)), Radius * 1.7)
+            var pen = new Pen(new SolidColorBrush(Color.FromArgb(a, 255, 255, 255)), R * 1.7)
             { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round };
             dc.DrawLine(pen, _trail[i - 1].P, _trail[i].P);
         }
@@ -436,7 +486,7 @@ public sealed class Stage : FrameworkElement
 
     private void DrawLidar(DrawingContext dc)
     {
-        double len = Math.Sqrt(RenderSize.Width * RenderSize.Width + RenderSize.Height * RenderSize.Height);
+        double len = Math.Sqrt(WorldSize.Width * WorldSize.Width + WorldSize.Height * WorldSize.Height);
         var c = RobotPainter.Accent;
 
         // wiązka: trójkątny klin + „smuga” za nią
@@ -470,8 +520,8 @@ public sealed class Stage : FrameworkElement
         }
 
         // pierścienie zasięgu
-        double ring = (_phaseTime * 420) % 600;
-        var rp = new Pen(new SolidColorBrush(Color.FromArgb((byte)(80 * (1 - ring / 600)), c.R, c.G, c.B)), 1.5);
+        double ring = (_phaseTime * 420 * K) % (600 * K);
+        var rp = new Pen(new SolidColorBrush(Color.FromArgb((byte)(80 * (1 - ring / (600 * K))), c.R, c.G, c.B)), 1.5 * K);
         dc.DrawEllipse(null, rp, Position, ring, ring);
     }
 
@@ -480,21 +530,30 @@ public sealed class Stage : FrameworkElement
         var c = RobotPainter.Accent;
         foreach (var it in Items)
         {
-            if (it.State != ItemState.Discovered) continue;
+            bool prot = it.State == ItemState.Protected;
+            if (it.State != ItemState.Discovered && !(prot && it.DiscoveredAt >= 0)) continue;
+            double k = ScaleAt(it.Center);
             double age = _realTime - it.DiscoveredAt;
+            var col = prot ? RobotPainter.Amber : c;
 
             if (age < 0.9)
             {
-                double r = 8 + age * 55;
+                double r = (8 + age * 55) * k;
                 byte a = (byte)(200 * (1 - age / 0.9));
-                dc.DrawEllipse(null, new Pen(new SolidColorBrush(Color.FromArgb(a, c.R, c.G, c.B)), 2), it.Center, r, r);
+                dc.DrawEllipse(null, new Pen(new SolidColorBrush(Color.FromArgb(a, col.R, col.G, col.B)), 2 * k), it.Center, r, r);
+            }
+
+            if (prot)
+            {
+                RobotPainter.DrawShield(dc, new Point(it.IconRect.Right - 2 * k, it.IconRect.Top + 2 * k), 9 * k);
+                continue;
             }
 
             // narożniki „zaznaczenia” lidaru
             var rc = it.IconRect;
-            rc.Inflate(6, 6);
-            double s = Math.Min(10, rc.Width / 4);
-            var pen = new Pen(new SolidColorBrush(Color.FromArgb(150, c.R, c.G, c.B)), 1.6);
+            rc.Inflate(4 * k, 4 * k);
+            double s = Math.Min(10 * k, rc.Width / 4);
+            var pen = new Pen(new SolidColorBrush(Color.FromArgb(150, c.R, c.G, c.B)), 1.6 * k);
             DrawCorners(dc, pen, rc, s);
         }
     }
@@ -599,8 +658,9 @@ public sealed class Stage : FrameworkElement
     {
         if (_labels.TryGetValue(item, out var f)) return f;
         var name = item.Name.Length > 22 ? item.Name[..20] + "…" : item.Name;
+        double scale = ScaleAt(item.Center);
         f = new FormattedText(name, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
-            new Typeface("Segoe UI"), 12, Brushes.White, VisualTreeHelper.GetDpi(this).PixelsPerDip);
+            new Typeface("Segoe UI"), 12 * scale, Brushes.White, scale);
         _labels[item] = f;
         return f;
     }

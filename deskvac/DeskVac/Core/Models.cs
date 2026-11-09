@@ -17,6 +17,8 @@ public enum ItemState
     Collected,
     /// <summary>Nie dało się przenieść (plik otwarty, brak uprawnień…).</summary>
     Skipped,
+    /// <summary>Chroniony przez użytkownika („Nie odkurzaj!”) – robot go omija.</summary>
+    Protected,
 }
 
 public sealed class DesktopItem
@@ -51,19 +53,56 @@ public sealed class DesktopItem
 
 public sealed class AppSettings
 {
+    // --- co zbierać ---
     public bool CollectShortcuts { get; set; } = true;
     public bool CollectFiles { get; set; } = true;
     public bool CollectFolders { get; set; } = true;
     public bool MinimizeWindows { get; set; } = true;
-    public bool PlaySounds { get; set; } = true;
 
+    // --- dźwięk ---
+    public bool PlaySounds { get; set; } = true;
     /// <summary>Głośność dźwięków 0..1.</summary>
     public double Volume { get; set; } = 0.8;
 
+    // --- ochrona ---
     /// <summary>Nazwy elementów (z rozszerzeniem lub bez), których robot nie rusza.</summary>
     public List<string> Exclusions { get; set; } = new();
+    /// <summary>Pełne ścieżki elementów oznaczonych „Nie odkurzaj!” (menu kontekstowe / lista w ustawieniach).</summary>
+    public List<string> ProtectedPaths { get; set; } = new();
 
     public string CollectionFolderName { get; set; } = "Zebrane z pulpitu";
+
+    /// <summary>Pozycja „Nie odkurzaj!” w menu kontekstowym tylko dla elementów pulpitu.</summary>
+    public bool ContextMenuOnlyOnDesktop { get; set; } = true;
+
+    // --- działanie w tle ---
+    /// <summary>Odczytywane z rejestru przy starcie (instalator decyduje o wartości początkowej).</summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool StartWithWindows { get; set; }
+    public bool CloseToTray { get; set; } = true;
+    public bool ShowRobotOnDesktop { get; set; } = true;
+
+    // --- kalibracja (px, dodawane do pozycji ikon) ---
+    public double OffsetX { get; set; }
+    public double OffsetY { get; set; }
+
+    // --- przypomnienia ---
+    public bool RemindOnStartup { get; set; } = true;
+    public int StartupDelayMinutes { get; set; } = 2;
+    public bool RemindDaily { get; set; } = true;
+    public List<string> ReminderTimes { get; set; } = new() { "16:00" };
+    public List<DayOfWeek> ReminderDays { get; set; } = AllDays();
+    /// <summary>Nie przypominaj, gdy do sprzątnięcia jest mniej elementów.</summary>
+    public int MinItemsToRemind { get; set; } = 5;
+
+    // --- sprzątanie automatyczne ---
+    public bool AutoCleanEnabled { get; set; }
+    public string AutoCleanTime { get; set; } = "17:00";
+    public List<DayOfWeek> AutoCleanDays { get; set; } = AllDays();
+    /// <summary>W trybie automatycznym bez dźwięku, żeby nie przeszkadzać.</summary>
+    public bool AutoCleanQuiet { get; set; } = true;
+
+    public static List<DayOfWeek> AllDays() => Enum.GetValues<DayOfWeek>().ToList();
 
     private static string FilePath => System.IO.Path.Combine(AppPaths.DataDir, "settings.json");
 
@@ -72,7 +111,11 @@ public sealed class AppSettings
         try
         {
             if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new AppSettings();
+            {
+                var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new AppSettings();
+                s.ReminderTimes = s.ReminderTimes.Where(t => TryParseTime(t, out _)).Distinct().ToList();
+                return s;
+            }
         }
         catch (Exception)
         {
@@ -94,8 +137,28 @@ public sealed class AppSettings
         }
     }
 
+    public static bool TryParseTime(string text, out TimeSpan time) =>
+        TimeSpan.TryParseExact(text.Trim(), new[] { @"h\:mm", @"hh\:mm" }, null, out time) && time < TimeSpan.FromDays(1);
+
+    public bool IsProtected(string path) =>
+        ProtectedPaths.Any(p => p.Equals(path, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Przełącza ochronę elementu. Zwraca true, jeśli element jest teraz chroniony.</summary>
+    public bool ToggleProtected(string path)
+    {
+        var existing = ProtectedPaths.FirstOrDefault(p => p.Equals(path, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null)
+        {
+            ProtectedPaths.Remove(existing);
+            return false;
+        }
+        ProtectedPaths.Add(path);
+        return true;
+    }
+
     public bool IsExcluded(string name, string path)
     {
+        if (IsProtected(path)) return true;
         var fileName = System.IO.Path.GetFileName(path);
         var noExt = System.IO.Path.GetFileNameWithoutExtension(path);
         return Exclusions.Any(e =>

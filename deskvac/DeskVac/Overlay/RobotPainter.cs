@@ -51,10 +51,16 @@ internal static class RobotPainter
     {
         if (opacity < 1) dc.PushOpacity(opacity);
 
-        // cień (nieobrócony, lekko przesunięty w dół)
-        dc.DrawEllipse(ShadowBrush, null, new Point(pos.X + 3, pos.Y + 7), r * 1.12, r * 1.08);
+        // rysujemy zawsze w rozmiarze bazowym 30 i skalujemy – grubości linii rosną razem z robotem
+        double k = r / 30.0;
+        r = 30;
 
         dc.PushTransform(new TranslateTransform(pos.X, pos.Y));
+        dc.PushTransform(new ScaleTransform(k, k));
+
+        // cień (nieobrócony, lekko przesunięty w dół)
+        dc.DrawEllipse(ShadowBrush, null, new Point(3, 7), r * 1.12, r * 1.08);
+
         dc.PushTransform(new RotateTransform(heading * 180 / Math.PI));
 
         // szczotki boczne – pod korpusem, wystają z przodu
@@ -91,7 +97,28 @@ internal static class RobotPainter
 
         dc.Pop();
         dc.Pop();
+        dc.Pop();
         if (opacity < 1) dc.Pop();
+    }
+
+    /// <summary>Mała tarcza „chronione – nie odkurzaj” w prawym górnym rogu ikony.</summary>
+    public static void DrawShield(DrawingContext dc, Point center, double size)
+    {
+        var g = new StreamGeometry();
+        using (var c = g.Open())
+        {
+            double w = size, h = size * 1.15;
+            c.BeginFigure(new Point(center.X, center.Y - h / 2), true, true);
+            c.LineTo(new Point(center.X + w / 2, center.Y - h / 2 + h * 0.18), true, true);
+            c.QuadraticBezierTo(new Point(center.X + w / 2, center.Y + h * 0.25), new Point(center.X, center.Y + h / 2), true, true);
+            c.QuadraticBezierTo(new Point(center.X - w / 2, center.Y + h * 0.25), new Point(center.X - w / 2, center.Y - h / 2 + h * 0.18), true, true);
+        }
+        g.Freeze();
+        dc.DrawGeometry(new SolidColorBrush(Color.FromArgb(235, Amber.R, Amber.G, Amber.B)),
+            new Pen(new SolidColorBrush(Color.FromArgb(200, 40, 28, 0)), size * 0.1), g);
+        var tick = new Pen(new SolidColorBrush(Color.FromRgb(40, 28, 0)), size * 0.14) { StartLineCap = PenLineCap.Round, EndLineCap = PenLineCap.Round, LineJoin = PenLineJoin.Round };
+        dc.DrawLine(tick, new Point(center.X - size * 0.2, center.Y), new Point(center.X - size * 0.03, center.Y + size * 0.18));
+        dc.DrawLine(tick, new Point(center.X - size * 0.03, center.Y + size * 0.18), new Point(center.X + size * 0.24, center.Y - size * 0.18));
     }
 
     private static void DrawSideBrush(DrawingContext dc, Point c, double len, double angle)
@@ -107,6 +134,16 @@ internal static class RobotPainter
 
     /// <summary>Stacja dokująca: niska „wieża” na dole ekranu, robot stoi tuż nad nią.</summary>
     public static void DrawDock(DrawingContext dc, Point topCenter, double r, bool charging, double pulse)
+    {
+        double k = r / 30.0;
+        dc.PushTransform(new TranslateTransform(topCenter.X, topCenter.Y));
+        dc.PushTransform(new ScaleTransform(k, k));
+        DrawDockBase(dc, new Point(0, 0), 30, charging, pulse);
+        dc.Pop();
+        dc.Pop();
+    }
+
+    private static void DrawDockBase(DrawingContext dc, Point topCenter, double r, bool charging, double pulse)
     {
         double w = r * 2.3, h = r * 1.15;
         var rect = new Rect(topCenter.X - w / 2, topCenter.Y, w, h);

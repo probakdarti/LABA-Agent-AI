@@ -4,26 +4,37 @@ using DeskVac.Audio;
 using DeskVac.Core;
 using DeskVac.Native;
 using DeskVac.Overlay;
+using DeskVac.Platform;
 using Microsoft.Win32;
 
 namespace DeskVac;
 
-/// <summary>Łączy odczyt pulpitu, przenoszenie plików i animację robota w jedno „sprzątanie”.</summary>
+/// <summary>
+/// Serce aplikacji: odczyt pulpitu (wszystkie monitory), przenoszenie plików, nakładki z robotem
+/// (po jednej na monitor), widżet „robot przy stacji” i dźwięk.
+/// Wszystkie współrzędne w fizycznych pikselach ekranu.
+/// </summary>
 public sealed class CleaningController : IDisposable
 {
-    private readonly Window _owner;
+    private readonly AppSettings _settings;
     private readonly SoundEngine? _sound;
-    private DispatcherTimer? _panTimer;
-    private OverlayWindow? _overlay;
+    private readonly DesktopLayer _layer = new();
+    private readonly List<OverlayWindow> _overlays = new();
+    private readonly DispatcherTimer _idleTimer = new() { Interval = TimeSpan.FromMilliseconds(66) };
+    private readonly DispatcherTimer _panTimer = new() { Interval = TimeSpan.FromMilliseconds(50) };
+    private List<MonitorInfo> _monitors = new();
+    private Rect _world;
+    private DockWidget? _widget;
     private DesktopView? _view;
     private Collector? _collector;
     private DispatcherTimer? _refreshTimer;
     private bool _minimizedWindows;
+    private bool _previewing;
     private long _bytes;
 
-    public CleaningController(Window owner)
+    public CleaningController(AppSettings settings)
     {
-        _owner = owner;
+        _settings = settings;
         try
         {
             _sound = new SoundEngine();
@@ -32,120 +43,144 @@ public sealed class CleaningController : IDisposable
         {
             _sound = null; // bez dźwięku, ale działa
         }
+
+        Stage.CollectHandler = OnCollect;
+        Stage.Finished += OnStageFinished;
+        Stage.PhaseChanged += OnPhaseChanged;
+        Stage.ItemCollected += it => _sound?.PlaySuck(PanOf(it.Center.X));
+        Stage.ItemDiscovered += it => _sound?.PlayPing(PanOf(it.Center.X));
+        Stage.ItemSkipped += it => _sound?.Play("skip", 0.8f, PanOf(it.Center.X));
+        Stage.Invalidated += OnStageInvalidated;
+        Stage.ScaleAt = p => _monitors.Count == 0 ? 1.0 : Monitors.At(_monitors, p).Scale;
+
+        _idleTimer.Tick += (_, _) => { if (!Stage.Running) Stage.Tick(_idleTimer.Interval.TotalSeconds); };
+        _panTimer.Tick += (_, _) => { if (_sound is not null) _sound.MotorPan = PanOf(Stage.Position.X); };
+
+        SystemEvents.DisplaySettingsChanged += (_, _) => Application.Current?.Dispatcher.BeginInvoke(() =>
+        {
+            if (!IsRunning) RebuildLayout();
+        });
+
+        RebuildLayout();
+        _idleTimer.Start();
     }
 
-    public void ApplySoundSettings(AppSettings s)
-    {
-        if (_sound is null) return;
-        _sound.Enabled = s.PlaySounds;
-        _sound.Volume = (float)s.Volume;
-        if (!s.PlaySounds) _sound.MotorStop();
-    }
-
-    public void Dispose() => _sound?.Dispose();
-
-    public Stage? Stage => _overlay?.Stage;
+    public Stage Stage { get; } = new();
+    public Window? Panel { get; set; }
     public bool IsRunning { get; private set; }
+    public bool IsBackgroundRun { get; private set; }
     public int Total { get; private set; }
     public int Collected { get; private set; }
     public int Skipped { get; private set; }
     public long CollectedBytes => Interlocked.Read(ref _bytes);
     public string? LastProblem { get; private set; }
-    public string? CollectionFolder => _collector?.BaseFolder;
+    public string CollectionFolder => new Collector(_settings).BaseFolder;
+    public IReadOnlyList<MonitorInfo> MonitorList => _monitors;
+    public Rect World => _world;
 
     public event Action? Finished;
+    public event Action? WidgetClicked;
+    public event Action? WidgetMenuRequested;
 
-    public void Start(AppSettings settings)
+    // ------------------------------------------------------------------ układ ekranów, widżet
+
+    /// <summary>Monitory, stacja dokująca (prawy dolny róg ekranu głównego) i widżet.</summary>
+    private void RebuildLayout()
     {
-        if (IsRunning) return;
-        ApplySoundSettings(settings);
+        _monitors = Monitors.GetAll();
+        _world = Monitors.Union(_monitors);
+        Stage.WorldSize = _world.Size;
 
-        _view = DesktopView.Open();
-        _collector = new Collector(settings);
-        var items = ReadItems(_view, settings, _collector);
-        Total = items.Count;
-        Collected = 0;
-        Skipped = 0;
-        LastProblem = null;
-        Interlocked.Exchange(ref _bytes, 0);
+        var primary = Monitors.Primary(_monitors);
+        double s = primary.Scale;
+        var wa = primary.WorkArea;
+        var dockTop = new Point(wa.Right - 120 * s, wa.Bottom - (Stage.BaseRadius * 1.15 + 18) * s);
+        Stage.SetDock(dockTop);
 
-        if (items.Count == 0)
-            throw new InvalidOperationException("Pulpit jest już czysty – nie ma czego zbierać 🎉");
+        foreach (var o in _overlays) o.Close();
+        _overlays.Clear();
 
-        _collector.Begin();
-
-        _overlay ??= CreateOverlay();
-        _overlay.Stage.SetDock(OverlayWindow.DefaultDockTop());
-        IsRunning = true;
-
-        void Launch()
+        var widgetRect = new Rect(dockTop.X - 80 * s, dockTop.Y - 80 * s, 160 * s, 80 * s + Stage.BaseRadius * 1.15 * s + 16 * s);
+        if (_widget is null)
         {
-            _overlay.Show();
-            _overlay.Stage.Start(items);
-        }
-
-        if (settings.MinimizeWindows)
-        {
-            // najpierw chowamy okna, dopiero potem wypuszczamy robota (żeby nakładka nie została zminimalizowana)
-            MinimizeAllWindows();
-            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(450) };
-            t.Tick += (_, _) => { t.Stop(); Launch(); };
-            t.Start();
+            _widget = new DockWidget(widgetRect, Stage);
+            _widget.MouseLeftButtonUp += (_, _) => WidgetClicked?.Invoke();
+            _widget.MouseRightButtonUp += (_, e) => { e.Handled = true; WidgetMenuRequested?.Invoke(); };
+            _widget.SourceInitialized += (_, _) => _layer.Add(_widget.Handle);
         }
         else
         {
-            Launch();
+            _widget.MoveTo(widgetRect);
         }
+        UpdateWidgetVisibility();
+    }
 
-        // przy włączonym „Autorozmieszczaniu” Explorer przesuwa ikony po każdym zabraniu – śledzimy to
-        if (_view.AutoArrange)
+    public void UpdateWidgetVisibility()
+    {
+        if (_widget is null) return;
+        bool show = _settings.ShowRobotOnDesktop && !IsRunning && !_previewing;
+        if (show && !_widget.IsVisible)
         {
-            _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
-            _refreshTimer.Tick += (_, _) => RefreshPositions(items);
-            _refreshTimer.Start();
+            _widget.Show();
+            _layer.Refresh();
+        }
+        else if (!show && _widget.IsVisible)
+        {
+            _widget.Hide();
         }
     }
 
-    public void TogglePause()
+    private void OnStageInvalidated()
     {
-        if (Stage is not { } s || !IsRunning) return;
-        s.Paused = !s.Paused;
-        // na pauzie silnik zwalnia do zera, po wznowieniu znów się rozpędza
-        if (s.Paused) _sound?.MotorStop();
-        else if (s.Phase is RobotPhase.Undocking or RobotPhase.Scanning or RobotPhase.Cleaning or RobotPhase.Returning)
-            _sound?.MotorStart();
+        foreach (var o in _overlays)
+            if (o.IsVisible) o.View.InvalidateVisual();
+        if (_widget is { IsVisible: true }) _widget.View.InvalidateVisual();
     }
 
-    public void Stop()
+    private void EnsureOverlays()
     {
-        if (IsRunning) Stage?.RequestStop();
+        if (_overlays.Count == _monitors.Count) return;
+        foreach (var o in _overlays) o.Close();
+        _overlays.Clear();
+        foreach (var m in _monitors) _overlays.Add(new OverlayWindow(m, Stage));
     }
 
-    private OverlayWindow CreateOverlay()
+    private void ShowOverlays(bool onTop)
     {
-        var o = new OverlayWindow();
-        o.Stage.CollectHandler = OnCollect;
-        o.Stage.Finished += OnStageFinished;
-        o.Stage.PhaseChanged += OnPhaseChanged;
-        o.Stage.ItemCollected += it => _sound?.PlaySuck(PanOf(it.Center.X));
-        o.Stage.ItemDiscovered += it => _sound?.PlayPing(PanOf(it.Center.X));
-        o.Stage.ItemSkipped += it => _sound?.Play("skip", 0.8f, PanOf(it.Center.X));
-
-        // silnik „podąża” za robotem w panoramie stereo
-        _panTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
-        _panTimer.Tick += (_, _) =>
+        EnsureOverlays();
+        foreach (var o in _overlays)
         {
-            if (_sound is not null && Stage is { } st) _sound.MotorPan = PanOf(st.Position.X);
-        };
-        _panTimer.Start();
-        return o;
+            o.Topmost = onTop;
+            o.Show();
+            if (onTop) _layer.Remove(o.Handle);
+            else _layer.Add(o.Handle);
+        }
+        Stage.Running = true;
     }
 
-    private float PanOf(double x)
+    private void HideOverlays()
     {
-        double w = _overlay?.ActualWidth > 0 ? _overlay.ActualWidth : SystemParameters.VirtualScreenWidth;
-        return (float)Math.Clamp(x / w * 2 - 1, -1, 1);
+        foreach (var o in _overlays)
+        {
+            _layer.Remove(o.Handle);
+            o.Hide();
+        }
+        Stage.Running = false;
     }
+
+    // ------------------------------------------------------------------ dźwięk
+
+    public void ApplySoundSettings()
+    {
+        if (_sound is null) return;
+        bool quiet = IsRunning && IsBackgroundRun && _settings.AutoCleanQuiet;
+        _sound.Enabled = _settings.PlaySounds && !quiet;
+        _sound.Volume = (float)_settings.Volume;
+        if (!_sound.Enabled) _sound.MotorStop();
+    }
+
+    private float PanOf(double x) =>
+        _world.Width <= 0 ? 0 : (float)Math.Clamp((x - _world.X) / _world.Width * 2 - 1, -1, 1);
 
     private void OnPhaseChanged(RobotPhase phase)
     {
@@ -157,15 +192,15 @@ public sealed class CleaningController : IDisposable
                 _sound.MotorStart();
                 break;
             case RobotPhase.Scanning:
-                _sound.Play("scan", 0.9f, PanOf(Stage?.Position.X ?? 0));
+                _sound.Play("scan", 0.9f, PanOf(Stage.Position.X));
                 break;
             case RobotPhase.Docking:
                 _sound.MotorStop(); // wybieg silnika podczas parkowania
                 break;
             case RobotPhase.Emptying:
                 _sound.MotorStop();
-                _sound.Play("dock", 0.9f, PanOf(Stage?.Position.X ?? 0));
-                Delay(350, () => _sound.Play("empty", 1f, PanOf(Stage?.Position.X ?? 0)));
+                _sound.Play("dock", 0.9f, PanOf(Stage.Position.X));
+                Delay(350, () => _sound.Play("empty", 1f, PanOf(Stage.Position.X)));
                 break;
             case RobotPhase.Done:
                 _sound.MotorStop();
@@ -179,6 +214,79 @@ public sealed class CleaningController : IDisposable
         var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ms) };
         t.Tick += (_, _) => { t.Stop(); action(); };
         t.Start();
+    }
+
+    // ------------------------------------------------------------------ sprzątanie
+
+    /// <summary>
+    /// Rusza robota. background = sprzątanie automatyczne: bez minimalizowania okien,
+    /// nakładki leżą pod oknami programów (nie przeszkadzają), opcjonalnie bez dźwięku.
+    /// Zwraca liczbę elementów do zebrania (0 = nic do roboty).
+    /// </summary>
+    public int Start(bool background)
+    {
+        if (IsRunning) return 0;
+        RebuildLayout();
+
+        _view = DesktopView.Open();
+        _collector = new Collector(_settings);
+        var items = ReadItems(_view, _collector, exact: true);
+        int cleanable = items.Count(i => i.State == ItemState.Hidden);
+        if (cleanable == 0) return 0;
+
+        Total = cleanable;
+        Collected = 0;
+        Skipped = 0;
+        LastProblem = null;
+        Interlocked.Exchange(ref _bytes, 0);
+        _collector.Begin();
+
+        IsRunning = true;
+        IsBackgroundRun = background;
+        ApplySoundSettings();
+        UpdateWidgetVisibility();
+        _panTimer.Start();
+
+        void Launch()
+        {
+            ShowOverlays(onTop: !background);
+            Stage.Start(items);
+        }
+
+        if (!background && _settings.MinimizeWindows)
+        {
+            // najpierw chowamy okna, dopiero potem wypuszczamy robota (żeby nakładki nie zostały zminimalizowane)
+            MinimizeAllWindows();
+            Delay(450, Launch);
+        }
+        else
+        {
+            Launch();
+        }
+
+        // przy włączonym „Autorozmieszczaniu” Explorer przesuwa ikony po każdym zabraniu – śledzimy to
+        if (_view.AutoArrange)
+        {
+            _refreshTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(600) };
+            _refreshTimer.Tick += (_, _) => RefreshPositions(items);
+            _refreshTimer.Start();
+        }
+        return cleanable;
+    }
+
+    public void TogglePause()
+    {
+        if (!IsRunning) return;
+        Stage.Paused = !Stage.Paused;
+        // na pauzie silnik zwalnia do zera, po wznowieniu znów się rozpędza
+        if (Stage.Paused) _sound?.MotorStop();
+        else if (Stage.Phase is RobotPhase.Undocking or RobotPhase.Scanning or RobotPhase.Cleaning or RobotPhase.Returning)
+            _sound?.MotorStart();
+    }
+
+    public void Stop()
+    {
+        if (IsRunning) Stage.RequestStop();
     }
 
     private bool OnCollect(DesktopItem item)
@@ -203,37 +311,79 @@ public sealed class CleaningController : IDisposable
         _refreshTimer?.Stop();
         _refreshTimer = null;
         _collector?.Finish();
-        IsRunning = false;
+        _panTimer.Stop();
 
-        var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1600) };
-        t.Tick += (_, _) =>
+        Delay(1600, () =>
         {
-            t.Stop();
-            if (!IsRunning) _overlay?.Hide();
+            if (IsRunning) return;
+            HideOverlays();
+            UpdateWidgetVisibility();
             if (_minimizedWindows) RestoreAllWindows();
-        };
-        t.Start();
+        });
 
+        IsRunning = false;
+        ApplySoundSettings();
         Finished?.Invoke();
+    }
+
+    /// <summary>Podgląd namierzania: ramki wokół wykrytych ikon na wszystkich monitorach przez kilka sekund.</summary>
+    public int PreviewTargets(int seconds = 6)
+    {
+        if (IsRunning) return 0;
+        RebuildLayout();
+        var view = DesktopView.Open();
+        var items = ReadItems(view, new Collector(_settings), exact: true);
+        _previewing = true;
+        UpdateWidgetVisibility();
+        ShowOverlays(onTop: true);
+        Stage.ShowPreview(items);
+        Delay(seconds * 1000, () =>
+        {
+            _previewing = false;
+            if (IsRunning) return;
+            Stage.ShowPreview(Array.Empty<DesktopItem>());
+            HideOverlays();
+            UpdateWidgetVisibility();
+        });
+        return items.Count;
+    }
+
+    /// <summary>Ile elementów robot by teraz zebrał (do treści przypomnień).</summary>
+    public int CountCleanable()
+    {
+        var view = DesktopView.Open();
+        var collector = new Collector(_settings);
+        int n = 0;
+        foreach (var raw in view.ReadIcons(withIcons: false, exactRects: false))
+            if (IsCandidate(raw, collector, out _) && !_settings.IsExcluded(raw.Name, raw.FileSystemPath!)) n++;
+        return n;
     }
 
     // ------------------------------------------------------------------ odczyt pulpitu
 
-    private List<DesktopItem> ReadItems(DesktopView view, AppSettings settings, Collector collector)
+    private bool IsCandidate(RawDesktopIcon raw, Collector collector, out ItemKind kind)
     {
-        double scale = DpiScale();
+        kind = ItemKind.File;
+        if (raw.FileSystemPath is null) return false;                 // Kosz, Ten komputer itp.
+        if (collector.IsCollectionFolder(raw.FileSystemPath)) return false;
+        kind = DesktopItem.Classify(raw.FileSystemPath);
+        return _settings.Accepts(kind);
+    }
+
+    /// <summary>Elementy do zebrania (stan Hidden) oraz chronione (stan Protected – robot je omija, ale je widać).</summary>
+    private List<DesktopItem> ReadItems(DesktopView view, Collector collector, bool exact)
+    {
         var origin = view.ListOriginOnScreen;
         var spacing = view.Spacing;
-        double iconPx = DesktopIconSize() * scale;
+        int iconSize = DesktopIconSize();
 
         var list = new List<DesktopItem>();
-        foreach (var raw in view.ReadIcons(withIcons: true))
+        foreach (var raw in view.ReadIcons(withIcons: true, exactRects: exact))
         {
-            if (raw.FileSystemPath is null) continue;                 // Kosz, Ten komputer itp.
-            if (collector.IsCollectionFolder(raw.FileSystemPath)) continue;
-            if (settings.IsExcluded(raw.Name, raw.FileSystemPath)) continue;
+            if (raw.FileSystemPath is null || collector.IsCollectionFolder(raw.FileSystemPath)) continue;
             var kind = DesktopItem.Classify(raw.FileSystemPath);
-            if (!settings.Accepts(kind)) continue;
+            bool isProtected = _settings.IsExcluded(raw.Name, raw.FileSystemPath);
+            if (!isProtected && !_settings.Accepts(kind)) continue;
 
             list.Add(new DesktopItem
             {
@@ -242,7 +392,8 @@ public sealed class CleaningController : IDisposable
                 Kind = kind,
                 Icon = raw.Icon,
                 ListPosition = raw.Position,
-                IconRect = ToIconRect(raw.Position, origin, spacing, iconPx, scale),
+                IconRect = IconRectOf(raw, origin, spacing, iconSize),
+                State = isProtected ? ItemState.Protected : ItemState.Hidden,
             });
         }
         return list;
@@ -253,11 +404,10 @@ public sealed class CleaningController : IDisposable
         if (_view is null) return;
         try
         {
-            double scale = DpiScale();
             var origin = _view.ListOriginOnScreen;
             var spacing = _view.Spacing;
-            double iconPx = DesktopIconSize() * scale;
-            var byPath = _view.ReadIcons(withIcons: false)
+            int iconSize = DesktopIconSize();
+            var byPath = _view.ReadIcons(withIcons: false, exactRects: true)
                 .Where(r => r.FileSystemPath is not null)
                 .GroupBy(r => r.FileSystemPath!, StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
@@ -268,7 +418,7 @@ public sealed class CleaningController : IDisposable
                 if (byPath.TryGetValue(it.Path, out var raw))
                 {
                     it.ListPosition = raw.Position;
-                    it.IconRect = ToIconRect(raw.Position, origin, spacing, iconPx, scale);
+                    it.IconRect = IconRectOf(raw, origin, spacing, iconSize);
                 }
             }
         }
@@ -278,18 +428,28 @@ public sealed class CleaningController : IDisposable
         }
     }
 
-    private static Rect ToIconRect(POINT pos, POINT origin, POINT spacing, double iconPx, double scale)
+    /// <summary>Prostokąt ikony w px: dokładny z Explorera, a gdy go brak – wyliczony z siatki. Plus korekta z ustawień.</summary>
+    private Rect IconRectOf(RawDesktopIcon raw, POINT origin, POINT spacing, int iconSize)
     {
-        double cellW = spacing.X > 0 ? spacing.X : iconPx * 1.6;
-        double left = origin.X + pos.X + (cellW - iconPx) / 2;
-        double top = origin.Y + pos.Y + 2 * scale;
-        var tl = OverlayWindow.PhysicalToLocal(left, top, scale);
-        return new Rect(tl.X, tl.Y, iconPx / scale, iconPx / scale);
+        Rect r;
+        if (raw.IconRect is { } exact)
+        {
+            r = exact;
+        }
+        else
+        {
+            var guess = new Point(origin.X + raw.Position.X, origin.Y + raw.Position.Y);
+            double scale = _monitors.Count == 0 ? 1 : Monitors.At(_monitors, guess).Scale;
+            double iconPx = iconSize * scale;
+            double cellW = spacing.X > 0 ? spacing.X : iconPx * 1.6;
+            r = new Rect(guess.X + (cellW - iconPx) / 2, guess.Y + 2 * scale, iconPx, iconPx);
+        }
+        double k = _monitors.Count == 0 ? 1 : Monitors.At(_monitors, new Point(r.X + r.Width / 2, r.Y + r.Height / 2)).Scale;
+        r.Offset(_settings.OffsetX * k, _settings.OffsetY * k);
+        return r;
     }
 
-    private double DpiScale() => System.Windows.Media.VisualTreeHelper.GetDpi(_owner).DpiScaleX;
-
-    /// <summary>Rozmiar ikon pulpitu (Widok → Małe/Średnie/Duże), w pikselach logicznych.</summary>
+    /// <summary>Rozmiar ikon pulpitu (Widok → Małe/Średnie/Duże), w pikselach przy 100%.</summary>
     private static int DesktopIconSize()
     {
         try
@@ -317,7 +477,7 @@ public sealed class CleaningController : IDisposable
         if (restored.Count > 0) RestorePositionsLater(restored);
 
         return failed == 0
-            ? $"Przywrócono {restored.Count} elementów na pulpit."
+            ? $"Przywrócono {restored.Count} {Notifications.Plural(restored.Count)} na pulpit."
             : $"Przywrócono {restored.Count}, nie udało się: {failed} (np. plik o tej samej nazwie już jest na pulpicie).";
     }
 
@@ -357,15 +517,9 @@ public sealed class CleaningController : IDisposable
             shell?.MinimizeAll();
             _minimizedWindows = true;
 
-            // nasz panel ma zostać na wierzchu
-            var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(350) };
-            t.Tick += (_, _) =>
-            {
-                t.Stop();
-                _owner.WindowState = WindowState.Normal;
-                _owner.Activate();
-            };
-            t.Start();
+            // panel (jeśli był otwarty) ma zostać na wierzchu
+            if (Panel is { IsVisible: true } panel)
+                Delay(350, () => { panel.WindowState = WindowState.Normal; panel.Activate(); });
         }
         catch (Exception)
         {
@@ -385,5 +539,16 @@ public sealed class CleaningController : IDisposable
         {
             // trudno – użytkownik przywróci okna sam
         }
+    }
+
+    public void Dispose()
+    {
+        _idleTimer.Stop();
+        _panTimer.Stop();
+        Stage.Running = false;
+        _layer.Dispose();
+        foreach (var o in _overlays) o.Close();
+        _widget?.Close();
+        _sound?.Dispose();
     }
 }

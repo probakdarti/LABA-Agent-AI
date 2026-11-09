@@ -99,13 +99,10 @@
           <CheckBox x:Name="FoldersBox" Content="Foldery"/>
         </WrapPanel>
         <CheckBox x:Name="MinimizeBox" Content="Zminimalizuj okna na czas sprzątania" Margin="0,4,0,6"/>
-        <DockPanel Margin="0,0,0,10">
+        <DockPanel>
           <CheckBox x:Name="SoundBox" Content="Dźwięki" Margin="0,0,12,0" VerticalAlignment="Center" DockPanel.Dock="Left"/>
           <Slider x:Name="VolumeSlider" Minimum="0" Maximum="1" SmallChange="0.05" LargeChange="0.1" VerticalAlignment="Center"/>
         </DockPanel>
-        <TextBlock Text="NIE RUSZAJ (nazwy oddzielone przecinkami)" Style="{StaticResource Caption}"/>
-        <TextBox x:Name="ExclusionsBox" Background="#10141A" Foreground="{StaticResource Text}" BorderBrush="#2F3640"
-                 CaretBrush="{StaticResource Accent}" Padding="8,6" FontSize="13"/>
       </StackPanel>
     </Border>
 
@@ -115,13 +112,16 @@
         <ColumnDefinition/>
         <ColumnDefinition Width="8"/>
         <ColumnDefinition/>
+        <ColumnDefinition Width="8"/>
+        <ColumnDefinition/>
       </Grid.ColumnDefinitions>
-      <Button x:Name="UndoButton" Content="↶  Cofnij ostatnie" Style="{StaticResource PillButton}" Click="OnUndo"/>
-      <Button Grid.Column="2" Content="Otwórz folder" Style="{StaticResource PillButton}" Click="OnOpenFolder"/>
+      <Button x:Name="UndoButton" Content="↶  Cofnij" Style="{StaticResource PillButton}" Click="OnUndo" Padding="8,9"/>
+      <Button Grid.Column="2" Content="Folder" Style="{StaticResource PillButton}" Click="OnOpenFolder" Padding="8,9"/>
+      <Button Grid.Column="4" Content="⚙  Ustawienia" Style="{StaticResource PillButton}" Click="OnSettings" Padding="8,9"/>
     </Grid>
 
     <TextBlock x:Name="ProblemText" Foreground="{StaticResource Warn}" FontSize="12" TextWrapping="Wrap" Margin="0,10,0,0" Visibility="Collapsed"/>
     <TextBlock Foreground="{StaticResource Muted}" FontSize="11" TextWrapping="Wrap" Margin="0,10,0,0"
-               Text="Nic nie jest usuwane. Robot przenosi elementy do folderu „Zebrane z pulpitu” na pulpicie, a każde sprzątanie można cofnąć."/>
+               Text="Nic nie jest usuwane. Robot przenosi elementy do folderu „Zebrane z pulpitu”, a każde sprzątanie można cofnąć. Ikony chronisz prawym przyciskiem → Pokaż więcej opcji → „DeskVac: Nie odkurzaj!”."/>
   </StackPanel>
 </Window>

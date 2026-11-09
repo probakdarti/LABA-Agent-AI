@@ -7,7 +7,8 @@ using static DeskVac.Native.NativeMethods;
 namespace DeskVac.Native;
 
 /// <summary>Jedna ikona odczytana z widoku pulpitu (współrzędne fizyczne, w układzie listview pulpitu).</summary>
-public sealed record RawDesktopIcon(string Name, string? FileSystemPath, POINT Position, BitmapSource? Icon);
+/// <param name="IconRect">Dokładny prostokąt ikony na ekranie (fizyczne px), jeśli udało się go odczytać z Explorera.</param>
+public sealed record RawDesktopIcon(string Name, string? FileSystemPath, POINT Position, BitmapSource? Icon, Rect? IconRect);
 
 /// <summary>
 /// Dostęp do widoku folderu pulpitu (to, co rysuje Explorer) przez oficjalne API powłoki:
@@ -101,7 +102,7 @@ public sealed class DesktopView
         }
     }
 
-    public List<RawDesktopIcon> ReadIcons(bool withIcons)
+    public List<RawDesktopIcon> ReadIcons(bool withIcons, bool exactRects = true)
     {
         var result = new List<RawDesktopIcon>();
         if (_view.ItemCount(SVGIO_ALLVIEW, out int count) != 0) return result;
@@ -116,7 +117,7 @@ public sealed class DesktopView
                 SHGetNameFromIDList(pidl, SIGDN_NORMALDISPLAY, out var name);
                 string? path = SHGetNameFromIDList(pidl, SIGDN_FILESYSPATH, out var p) == 0 ? p : null;
                 var icon = withIcons ? GetIcon(pidl) : null;
-                result.Add(new RawDesktopIcon(name ?? "", path, pos, icon));
+                result.Add(new RawDesktopIcon(name ?? "", path, pos, icon, null));
             }
             catch (COMException)
             {
@@ -127,7 +128,29 @@ public sealed class DesktopView
                 CoTaskMemFree(pidl);
             }
         }
-        return result;
+        return exactRects ? AttachExactRects(result) : result;
+    }
+
+    /// <summary>Uzupełnia ikony o dokładne prostokąty z listview Explorera (dopasowanie po pozycji).</summary>
+    private List<RawDesktopIcon> AttachExactRects(List<RawDesktopIcon> icons)
+    {
+        var map = ListViewReader.ReadIconRects(_listView);
+        if (map is null || map.Count == 0) return icons;
+        var origin = ListOriginOnScreen;
+
+        return icons.Select(ic =>
+        {
+            if (!map.TryGetValue((ic.Position.X, ic.Position.Y), out var r))
+            {
+                // tolerancja kilku pikseli, gdyby obie strony zaokrąglały inaczej
+                var near = map.Where(kv => Math.Abs(kv.Key.X - ic.Position.X) <= 6 && Math.Abs(kv.Key.Y - ic.Position.Y) <= 6)
+                              .Select(kv => (RECT?)kv.Value).FirstOrDefault();
+                if (near is null) return ic;
+                r = near.Value;
+            }
+            if (r.Right <= r.Left || r.Bottom <= r.Top) return ic;
+            return ic with { IconRect = new Rect(origin.X + r.Left, origin.Y + r.Top, r.Right - r.Left, r.Bottom - r.Top) };
+        }).ToList();
     }
 
     /// <summary>Ustawia pozycję ikony o podanej ścieżce (np. po cofnięciu sprzątania). Zwraca false, jeśli ikona jeszcze nie istnieje.</summary>

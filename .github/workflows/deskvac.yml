@@ -7,6 +7,9 @@ on:
       - ".github/workflows/deskvac.yml"
   workflow_dispatch:
 
+env:
+  DESKVAC_VERSION: "0.2.${{ github.run_number }}"
+
 jobs:
   build:
     runs-on: windows-latest
@@ -24,10 +27,29 @@ jobs:
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
           -p:EnableCompressionInSingleFile=true
+          -p:Version=${{ env.DESKVAC_VERSION }}
           -o out
 
-      - uses: actions/upload-artifact@v4
+      - name: Instalator (Inno Setup)
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+          & $iscc "/DAppVersion=$env:DESKVAC_VERSION" deskvac\installer\DeskVac.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Instalator DeskVac-Setup.exe
+        uses: actions/upload-artifact@v4
         with:
-          name: DeskVac-win-x64
+          name: DeskVac-Setup
+          path: out/DeskVac-Setup.exe
+          if-no-files-found: error
+
+      - name: Wersja przenośna DeskVac.exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: DeskVac-portable-win-x64
           path: out/DeskVac.exe
           if-no-files-found: error

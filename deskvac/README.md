@@ -6,23 +6,53 @@ pliki oraz foldery do folderu **„Zebrane z pulpitu”**. Potem wraca do bazy i
 **Nic nie jest usuwane.** Każde sprzątanie zapisuje dziennik i można je cofnąć przyciskiem
 „Cofnij ostatnie”. Elementy wracają wtedy na pulpit, na swoje dawne miejsca.
 
-## Jak uruchomić
+## Instalacja
 
-### Gotowy plik .exe (najprościej)
-1. Na GitHubie wejdź w **Actions → „DeskVac – build Windows”**, otwórz ostatnie uruchomienie
-   i pobierz artefakt **DeskVac-win-x64** (plik zip z `DeskVac.exe`).
-2. Rozpakuj i uruchom `DeskVac.exe`. Nie trzeba instalować .NET.
-   Plik nie jest podpisany cyfrowo, więc SmartScreen może zapytać: *Więcej informacji → Uruchom mimo to*.
+1. Na GitHubie wejdź w **Actions → „DeskVac – build Windows”**, otwórz najnowsze uruchomienie
+   i pobierz artefakt **DeskVac-Setup** (zip z `DeskVac-Setup.exe`).
+2. Uruchom `DeskVac-Setup.exe`. Instalacja nie wymaga administratora; program trafia do
+   `%LOCALAPPDATA%\Programs\DeskVac`, a skrót do menu Start. Pole „Uruchamiaj razem z Windows” jest do wyboru.
+3. Instalator nie jest podpisany cyfrowo, więc SmartScreen może zapytać: *Więcej informacji → Uruchom mimo to*.
+4. Odinstalowanie: *Ustawienia → Aplikacje → DeskVac*. Usuwa też autostart i pozycję z menu kontekstowego.
+   Ustawienia i historia sprzątań zostają w `%LOCALAPPDATA%\DeskVac`.
+
+Artefakt **DeskVac-portable-win-x64** to sam `DeskVac.exe` bez instalatora.
 
 ### Z kodu źródłowego
-Wymagany Windows 10/11 i [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
-
+Wymagany Windows 10/11 i [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0):
 ```powershell
 cd deskvac/DeskVac
 dotnet run -c Release
 ```
 
-Albo otwórz `deskvac/DeskVac/DeskVac.csproj` w Visual Studio 2022 lub VS Code (C# Dev Kit).
+## Działanie w tle
+
+- **Zasobnik systemowy**: ikona DeskVac obok zegara. Lewy klik otwiera panel, prawy klik pokazuje menu
+  (Sprzątaj teraz, Ustawienia, Cofnij, Zakończ). Zamknięcie panelu krzyżykiem chowa go do zasobnika.
+- **Robot przy stacji** stoi w prawym dolnym rogu monitora głównego, pod oknami programów. Gdy pokażesz
+  pulpit (Win+D, kliknięcie w pulpit), wychodzi na wierzch. Kliknięcie robota otwiera panel.
+- **Wszystkie monitory**: robot skanuje i sprząta ikony na każdym monitorze (tryb „Rozszerz te ekrany”),
+  także przy różnym skalowaniu (np. 100% i 150%). Pozycje ikon są odczytywane wprost z Eksploratora.
+- **Jedna kopia programu**: kolejne uruchomienia (skrót, menu kontekstowe, powiadomienie) trafiają do już działającej.
+
+## Przypomnienia i sprzątanie automatyczne
+
+W **Ustawieniach**:
+- przypomnienie **po uruchomieniu komputera** (z opóźnieniem) i **codziennie o wybranych godzinach**
+  (lista godzin, dni tygodnia), tylko gdy na pulpicie jest co najmniej N elementów;
+- powiadomienie ma przyciski **Posprzątaj teraz / Za godzinę / Nie dziś**;
+- **sprzątanie automatyczne bez pytania** o wybranej godzinie: robot jeździ pod oknami programów,
+  nie zabiera fokusu, nie minimalizuje okien, opcjonalnie bez dźwięku. Powiadomienia „ruszył”
+  (przycisk Zatrzymaj) i „skończył” (Otwórz folder / Cofnij). Przy prezentacji, grze lub filmie
+  na pełnym ekranie sprzątanie czeka. Przegapioną godzinę (uśpiony komputer) nadrabia do 60 min.
+
+## „Nie odkurzaj!”
+
+Prawy przycisk na ikonie pulpitu → **Pokaż więcej opcji** → **DeskVac: Nie odkurzaj! / Pozwól odkurzać**.
+Działa dla wielu zaznaczonych ikon naraz (jeszcze raz = zdejmuje ochronę). Chronione ikony robot omija,
+a przy skanie lidarem dostają złotą tarczę. Listą chronionych zarządzasz też w Ustawieniach.
+
+Pozycja jest w klasycznym menu (Windows 11 dopuszcza do skróconego menu tylko podpisane pakiety MSIX).
 
 ## Jak to działa
 
@@ -70,13 +100,13 @@ sprzątania, dźwięki i ich głośność, oraz listę nazw lub pełnych ścież
 
 Robot zawsze pomija Kosz, „Ten komputer” i inne elementy wirtualne oraz sam folder „Zebrane z pulpitu”.
 
-## Znane ograniczenia (prototyp 0.1)
+## Znane ograniczenia
 
-- **Kilka monitorów o różnym skalowaniu DPI**: pozycje są liczone w skali monitora głównego,
-  więc na monitorze o innym skalowaniu robot może celować obok ikon.
+- Robot przejeżdża między monitorami po linii prostej; jeśli monitory nie stykają się krawędziami,
+  przez chwilę jedzie „poza ekranem”.
 - **Skróty z pulpitu publicznego** (`C:\Users\Public\Desktop`, np. instalowane dla wszystkich
   użytkowników) wymagają uprawnień administratora. Bez nich są pomijane i oznaczane czerwonym ×.
 - Przy włączonym **Widok → Autorozmieszczanie ikon** ikony przesuwają się po każdym zebraniu.
   Robot to śledzi, ale przy cofaniu nie da się odtworzyć dawnych pozycji.
-- Pozycja ikony jest wyliczana z odstępów siatki pulpitu, więc może się różnić o kilka pikseli
-  od miejsca, w którym Explorer faktycznie ją rysuje.
+- Gdyby ramki namierzania były przesunięte, w Ustawieniach → Namierzanie ikon jest korekta X/Y
+  i przycisk „Test namierzania”.
