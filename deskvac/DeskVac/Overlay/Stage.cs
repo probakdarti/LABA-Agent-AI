@@ -68,6 +68,22 @@ public sealed class Stage
 
     private double RAt(Point p) => BaseRadius * ScaleAt(p);
 
+    /// <summary>Obszar roboczy monitora w danym punkcie – chmurka nie wyjdzie poza ekran.</summary>
+    public Func<Point, Rect> WorkAreaAt { get; set; } = _ => new Rect(0, 0, 1e6, 1e6);
+
+    private string? _bubbleText;
+    private double _bubbleStart = -100, _bubbleDuration;
+
+    /// <summary>Robot „mówi”: chmurka nad nim przez podany czas (s), z radosnym kiwnięciem.</summary>
+    public void Say(string text, double seconds)
+    {
+        _bubbleText = text;
+        _bubbleStart = _realTime;
+        _bubbleDuration = seconds;
+    }
+
+    public bool IsSpeaking => _bubbleText is not null && _realTime - _bubbleStart < _bubbleDuration;
+
     /// <summary>Wywoływane po każdej klatce – nakładki odświeżają wtedy obraz.</summary>
     public event Action? Invalidated;
 
@@ -447,7 +463,17 @@ public sealed class Stage
 
         var led = Paused ? RobotPainter.Amber : charging ? RobotPainter.Charge : RobotPainter.Accent;
         double ledPulse = Paused || charging ? pulse : emptying ? 0.5 + 0.5 * Math.Sin(_realTime * 14) : 0.85 + 0.15 * pulse;
-        RobotPainter.DrawRobot(dc, Position, Heading, R, _brushAngle, _turretAngle, led, ledPulse);
+        double drawHeading = Heading;
+        if (IsSpeaking)
+        {
+            // radosne „kiwnięcie” przez pierwszą sekundę wypowiedzi
+            double t = _realTime - _bubbleStart;
+            drawHeading += 0.16 * Math.Sin(t * 16) * Math.Max(0, 1 - t);
+            led = RobotPainter.Charge;
+            ledPulse = 0.5 + 0.5 * Math.Sin(_realTime * 10);
+        }
+        RobotPainter.DrawRobot(dc, Position, drawHeading, R, _brushAngle, _turretAngle, led, ledPulse);
+        DrawBubble(dc);
 
         DrawSkips(dc);
     }
@@ -469,6 +495,60 @@ public sealed class Stage
             var pen = new Pen(new SolidColorBrush(Color.FromArgb((byte)(110 * k * ph), c.R, c.G, c.B)), 1.5);
             dc.DrawEllipse(null, pen, Position, r, r);
         }
+    }
+
+    private void DrawBubble(DrawingContext dc)
+    {
+        if (!IsSpeaking || _bubbleText is null) return;
+        double t = _realTime - _bubbleStart;
+        double alpha = Math.Min(1, t / 0.2) * Math.Min(1, (_bubbleDuration - t) / 0.4);
+        double pop = t < 0.25 ? 0.85 + 0.15 * Math.Sin(t / 0.25 * Math.PI / 2) * 1.05 : 1;
+        double k = ScaleAt(Position);
+
+        var text = new FormattedText(_bubbleText, CultureInfo.CurrentUICulture, FlowDirection.LeftToRight,
+            new Typeface(new FontFamily("Segoe UI"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal),
+            14 * k, new SolidColorBrush(Color.FromRgb(0x14, 0x18, 0x1D)), k)
+        { LineHeight = 19 * k };
+
+        double pad = 14 * k, tail = 10 * k;
+        double w = text.Width + pad * 2, h = text.Height + pad * 2;
+        var wa = WorkAreaAt(Position);
+        double x = Math.Clamp(Position.X - w / 2, wa.Left + 6 * k, wa.Right - w - 6 * k);
+        double y = Math.Max(wa.Top + 6 * k, Position.Y - R - tail - h - 6 * k);
+        var box = new Rect(x, y, w, h);
+        text.MaxTextWidth = text.Width + 1;      // wyśrodkowanie linii w obrębie najdłuższej
+        text.TextAlignment = TextAlignment.Center;
+        double tailX = Math.Clamp(Position.X, box.Left + 16 * k, box.Right - 16 * k);
+
+        var geo = new StreamGeometry();
+        using (var g = geo.Open())
+        {
+            double r = 12 * k;
+            g.BeginFigure(new Point(box.Left + r, box.Top), true, true);
+            g.LineTo(new Point(box.Right - r, box.Top), true, true);
+            g.ArcTo(new Point(box.Right, box.Top + r), new Size(r, r), 0, false, SweepDirection.Clockwise, true, true);
+            g.LineTo(new Point(box.Right, box.Bottom - r), true, true);
+            g.ArcTo(new Point(box.Right - r, box.Bottom), new Size(r, r), 0, false, SweepDirection.Clockwise, true, true);
+            g.LineTo(new Point(tailX + tail, box.Bottom), true, true);
+            g.LineTo(new Point(Position.X, box.Bottom + tail), true, true);   // ogonek do robota
+            g.LineTo(new Point(tailX - tail, box.Bottom), true, true);
+            g.LineTo(new Point(box.Left + r, box.Bottom), true, true);
+            g.ArcTo(new Point(box.Left, box.Bottom - r), new Size(r, r), 0, false, SweepDirection.Clockwise, true, true);
+            g.LineTo(new Point(box.Left, box.Top + r), true, true);
+            g.ArcTo(new Point(box.Left + r, box.Top), new Size(r, r), 0, false, SweepDirection.Clockwise, true, true);
+        }
+
+        var anchor = new Point(Position.X, box.Bottom + tail);
+        dc.PushOpacity(alpha);
+        dc.PushTransform(new ScaleTransform(pop, pop, anchor.X, anchor.Y));
+        dc.PushTransform(new TranslateTransform(2 * k, 4 * k));
+        dc.DrawGeometry(new SolidColorBrush(Color.FromArgb(70, 0, 0, 0)), null, geo); // cień
+        dc.Pop();
+        var c = RobotPainter.Accent;
+        dc.DrawGeometry(new SolidColorBrush(Color.FromRgb(0xF7, 0xF9, 0xFA)), new Pen(new SolidColorBrush(Color.FromRgb(c.R, c.G, c.B)), 2 * k), geo);
+        dc.DrawText(text, new Point(box.Left + pad, box.Top + pad));
+        dc.Pop();
+        dc.Pop();
     }
 
     private void DrawTrail(DrawingContext dc)

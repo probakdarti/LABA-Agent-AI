@@ -171,7 +171,11 @@ public partial class MainWindow : Window
         try
         {
             int n = _controller.Start(background: false);
-            if (n == 0) ShowProblem("Pulpit jest już czysty – nie ma czego zbierać 🎉");
+            if (n == 0)
+            {
+                ShowProblem("Pulpit jest już czysty – nie ma czego zbierać 🙂");
+                _controller.SayFromDock(CleaningController.CleanDesktopMessage, sound: _settings.PlaySounds);
+            }
             else Topmost = true;
         }
         catch (Exception ex)

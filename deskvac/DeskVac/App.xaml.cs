@@ -220,6 +220,7 @@ public partial class App : Application
         {
             int n = Controller.Start(background: true);
             if (n > 0) Notifications.AutoCleanStarted(n);
+            else Controller.SayFromDock(CleaningController.CleanDesktopMessage, 8, sound: Settings.PlaySounds && !Settings.AutoCleanQuiet);
             return true; // także gdy pulpit był czysty – dziś już nie próbujemy
         }
         catch (Exception)

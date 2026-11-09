@@ -30,6 +30,7 @@ public sealed class CleaningController : IDisposable
     private DispatcherTimer? _refreshTimer;
     private bool _minimizedWindows;
     private bool _previewing;
+    private bool _speaking;
     private long _bytes;
 
     public CleaningController(AppSettings settings)
@@ -52,6 +53,7 @@ public sealed class CleaningController : IDisposable
         Stage.ItemSkipped += it => _sound?.Play("skip", 0.8f, PanOf(it.Center.X));
         Stage.Invalidated += OnStageInvalidated;
         Stage.ScaleAt = p => _monitors.Count == 0 ? 1.0 : Monitors.At(_monitors, p).Scale;
+        Stage.WorkAreaAt = p => _monitors.Count == 0 ? new Rect(0, 0, 1e6, 1e6) : Monitors.At(_monitors, p).WorkArea;
 
         _idleTimer.Tick += (_, _) => { if (!Stage.Running) Stage.Tick(_idleTimer.Interval.TotalSeconds); };
         _panTimer.Tick += (_, _) => { if (_sound is not null) _sound.MotorPan = PanOf(Stage.Position.X); };
@@ -100,7 +102,9 @@ public sealed class CleaningController : IDisposable
         foreach (var o in _overlays) o.Close();
         _overlays.Clear();
 
-        var widgetRect = new Rect(dockTop.X - 80 * s, dockTop.Y - 80 * s, 160 * s, 80 * s + Stage.BaseRadius * 1.15 * s + 16 * s);
+        // widżet ma zapas miejsca nad robotem na chmurkę (przezroczyste piksele przepuszczają kliknięcia)
+        var widgetRect = new Rect(dockTop.X - 250 * s, dockTop.Y - 220 * s, 330 * s, 220 * s + Stage.BaseRadius * 1.15 * s + 16 * s);
+        widgetRect.Intersect(primary.WorkArea);
         if (_widget is null)
         {
             _widget = new DockWidget(widgetRect, Stage);
@@ -118,7 +122,7 @@ public sealed class CleaningController : IDisposable
     public void UpdateWidgetVisibility()
     {
         if (_widget is null) return;
-        bool show = _settings.ShowRobotOnDesktop && !IsRunning && !_previewing;
+        bool show = (_settings.ShowRobotOnDesktop || _speaking) && !IsRunning && !_previewing;
         if (show && !_widget.IsVisible)
         {
             _widget.Show();
@@ -326,6 +330,32 @@ public sealed class CleaningController : IDisposable
         Finished?.Invoke();
     }
 
+    /// <summary>
+    /// Robot mówi z chmurki nad stacją (np. „pulpit czysty”). Widżet na chwilę wychodzi na wierzch,
+    /// ale nie zabiera fokusu – nie przerywa pracy.
+    /// </summary>
+    public void SayFromDock(string text, double seconds = 6, bool sound = true)
+    {
+        if (IsRunning || _widget is null) return;
+        _speaking = true;
+        UpdateWidgetVisibility();
+        _widget.Topmost = true;
+        _idleTimer.Interval = TimeSpan.FromMilliseconds(33); // płynniejsza animacja chmurki
+        Stage.Say(text, seconds);
+        if (sound) _sound?.Play("chime_done", 0.6f, PanOf(Stage.Position.X));
+        Delay((int)(seconds * 1000) + 200, () =>
+        {
+            _speaking = false;
+            _idleTimer.Interval = TimeSpan.FromMilliseconds(66);
+            if (_widget is null) return;
+            _widget.Topmost = false;
+            UpdateWidgetVisibility();
+            _layer.Refresh();
+        });
+    }
+
+    public const string CleanDesktopMessage = "Twój Pulpit jest czysty!\nNie mam nic do roboty!\nGratulacje! 🙂";
+
     /// <summary>Podgląd namierzania: ramki wokół wykrytych ikon na wszystkich monitorach przez kilka sekund.</summary>
     public int PreviewTargets(int seconds = 6)
     {
@@ -361,11 +391,31 @@ public sealed class CleaningController : IDisposable
 
     // ------------------------------------------------------------------ odczyt pulpitu
 
+    private static readonly string[] DesktopDirs =
+    {
+        Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
+        Environment.GetFolderPath(Environment.SpecialFolder.CommonDesktopDirectory),
+    };
+
+    /// <summary>
+    /// Czy element naprawdę leży w folderze pulpitu (własnym lub publicznym). Ikony systemowe pulpitu –
+    /// folder użytkownika („Paweł Robak” = C:\Users\…), OneDrive, biblioteki, Ten komputer, Kosz,
+    /// Panel sterowania – wskazują gdzie indziej albo nigdzie i są pomijane automatycznie.
+    /// </summary>
+    public static bool LiesOnDesktop([System.Diagnostics.CodeAnalysis.NotNullWhen(true)] string? path)
+    {
+        if (string.IsNullOrEmpty(path)) return false;
+        var parent = Path.GetDirectoryName(path.TrimEnd('\\'));
+        if (parent is null) return false;
+        return DesktopDirs.Any(d => !string.IsNullOrEmpty(d) &&
+            string.Equals(Path.TrimEndingDirectorySeparator(d), Path.TrimEndingDirectorySeparator(parent), StringComparison.OrdinalIgnoreCase));
+    }
+
     private bool IsCandidate(RawDesktopIcon raw, Collector collector, out ItemKind kind)
     {
         kind = ItemKind.File;
-        if (raw.FileSystemPath is null) return false;                 // Kosz, Ten komputer itp.
-        if (collector.IsCollectionFolder(raw.FileSystemPath)) return false;
+        if (!LiesOnDesktop(raw.FileSystemPath)) return false;          // Kosz, Ten komputer, folder użytkownika itp.
+        if (collector.IsCollectionFolder(raw.FileSystemPath!)) return false;
         kind = DesktopItem.Classify(raw.FileSystemPath);
         return _settings.Accepts(kind);
     }
@@ -380,7 +430,7 @@ public sealed class CleaningController : IDisposable
         var list = new List<DesktopItem>();
         foreach (var raw in view.ReadIcons(withIcons: true, exactRects: exact))
         {
-            if (raw.FileSystemPath is null || collector.IsCollectionFolder(raw.FileSystemPath)) continue;
+            if (!LiesOnDesktop(raw.FileSystemPath) || collector.IsCollectionFolder(raw.FileSystemPath!)) continue;
             var kind = DesktopItem.Classify(raw.FileSystemPath);
             bool isProtected = _settings.IsExcluded(raw.Name, raw.FileSystemPath);
             if (!isProtected && !_settings.Accepts(kind)) continue;
@@ -434,7 +484,11 @@ public sealed class CleaningController : IDisposable
         Rect r;
         if (raw.IconRect is { } exact)
         {
-            r = exact;
+            // LVIR_ICON to „komórka” ikony (szersza niż obrazek) – bierzemy wyśrodkowany kwadrat w rozmiarze ikony
+            var c = new Point(exact.X + exact.Width / 2, exact.Y + exact.Height / 2);
+            double scale = _monitors.Count == 0 ? 1 : Monitors.At(_monitors, c).Scale;
+            double side = Math.Min(iconSize * scale, Math.Min(exact.Width, exact.Height));
+            r = new Rect(c.X - side / 2, c.Y - side / 2, side, side);
         }
         else
         {

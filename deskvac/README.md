@@ -102,7 +102,12 @@ W panelu wybierasz, co zbierać (skróty, pliki, foldery), czy minimalizować ok
 sprzątania, dźwięki i ich głośność, oraz listę nazw lub pełnych ścieżek, których robot nie rusza. Ustawienia są zapisywane w
 `%LOCALAPPDATA%\DeskVac\settings.json`.
 
-Robot zawsze pomija Kosz, „Ten komputer” i inne elementy wirtualne oraz sam folder „Zebrane z pulpitu”.
+Robot zbiera wyłącznie elementy, które naprawdę leżą w folderze pulpitu (własnym lub publicznym).
+Ikony systemowe – folder użytkownika (np. „Paweł Robak” = `C:\Users\…`), OneDrive, biblioteki, Kosz,
+„Ten komputer”, Sieć, Panel sterowania – oraz sam folder „Zebrane z pulpitu” są pomijane automatycznie.
+
+Gdy nie ma czego sprzątać (start ręczny lub automatyczny), robot pokazuje nad stacją chmurkę
+„Twój Pulpit jest czysty! Nie mam nic do roboty! Gratulacje! 🙂”.
 
 ## Znane ograniczenia
 
