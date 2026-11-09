@@ -17,4 +17,9 @@
     <SatelliteResourceLanguages>pl;en</SatelliteResourceLanguages>
   </PropertyGroup>
 
+  <ItemGroup>
+    <!-- projekty WPF nie dodają System.IO do niejawnych usingów -->
+    <Using Include="System.IO" />
+  </ItemGroup>
+
 </Project>
