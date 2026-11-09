@@ -39,10 +39,33 @@ Albo otwórz `deskvac/DeskVac/DeskVac.csproj` w Visual Studio 2022 lub VS Code (
 Przebieg sprzątania: **wyjazd ze stacji → skan lidarem (wykrywanie ikon) → sprzątanie
 (najbliższa ikona, robot zbiera też wszystko, przez co przejeżdża) → powrót → dokowanie i ładowanie.**
 
+## Dźwięk
+
+| Moment | Dźwięk |
+|---|---|
+| Start | krótki trójdźwięk, potem **rozruch silnika** |
+| Skanowanie | szum obracającego się lidaru + „ping” przy każdej wykrytej ikonie |
+| Odkurzanie | **silnik w pętli bez przerw** (z nagrania), panorama stereo podąża za robotem; „fwump” przy każdym zassanym elemencie |
+| Pauza | silnik zwalnia do zera, po wznowieniu znów się rozpędza |
+| Parkowanie | **wybieg silnika** podczas cofania na stację, potem klik styków i „du-dip” |
+| Opróżnianie | stacja wysysa pojemnik (~4 s): silnik stacji, wir powietrza, grzechot drobin |
+| Koniec | radosny dwudźwięk |
+
+Dźwięki leżą w `DeskVac/Assets/Sounds` i są wkompilowane w `.exe`. Silnik pochodzi z nagrania,
+które skrypt `tools/make_sounds.py` dzieli na rozruch, pętlę i wybieg. Pozostałe efekty skrypt
+syntetyzuje. Żeby podmienić silnik na inne nagranie:
+
+```powershell
+pip install numpy
+python deskvac/tools/make_sounds.py moje_nagranie.mp3 deskvac/DeskVac/Assets/Sounds
+```
+
+Skrypt zakłada nagranie ~10 s: rozruch do 1,3 s, równa praca do 7,9 s, potem wybieg.
+
 ## Ustawienia
 
 W panelu wybierasz, co zbierać (skróty, pliki, foldery), czy minimalizować okna na czas
-sprzątania, oraz listę nazw, których robot nie rusza. Ustawienia są zapisywane w
+sprzątania, dźwięki i ich głośność, oraz listę nazw lub pełnych ścieżek, których robot nie rusza. Ustawienia są zapisywane w
 `%LOCALAPPDATA%\DeskVac\settings.json`.
 
 Robot zawsze pomija Kosz, „Ten komputer” i inne elementy wirtualne oraz sam folder „Zebrane z pulpitu”.

@@ -57,6 +57,9 @@ public sealed class AppSettings
     public bool MinimizeWindows { get; set; } = true;
     public bool PlaySounds { get; set; } = true;
 
+    /// <summary>Głośność dźwięków 0..1.</summary>
+    public double Volume { get; set; } = 0.8;
+
     /// <summary>Nazwy elementów (z rozszerzeniem lub bez), których robot nie rusza.</summary>
     public List<string> Exclusions { get; set; } = new();
 

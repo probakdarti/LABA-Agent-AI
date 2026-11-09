@@ -24,11 +24,17 @@ public partial class MainWindow : Window
         FilesBox.IsChecked = _settings.CollectFiles;
         FoldersBox.IsChecked = _settings.CollectFolders;
         MinimizeBox.IsChecked = _settings.MinimizeWindows;
+        SoundBox.IsChecked = _settings.PlaySounds;
+        VolumeSlider.Value = _settings.Volume;
+        SoundBox.Click += (_, _) => { SaveSettings(); _controller.ApplySoundSettings(_settings); };
+        VolumeSlider.ValueChanged += (_, _) => { _settings.Volume = VolumeSlider.Value; _controller.ApplySoundSettings(_settings); };
+        _controller.ApplySoundSettings(_settings);
         ExclusionsBox.Text = string.Join(", ", _settings.Exclusions);
 
         SourceInitialized += (_, _) => UseDarkTitleBar();
         Loaded += (_, _) => PlaceNearDock();
         Closing += (_, _) => SaveSettings();
+        Closed += (_, _) => _controller.Dispose();
 
         _ui.Tick += (_, _) => RefreshUi();
         _ui.Start();
@@ -61,6 +67,8 @@ public partial class MainWindow : Window
         _settings.CollectFiles = FilesBox.IsChecked == true;
         _settings.CollectFolders = FoldersBox.IsChecked == true;
         _settings.MinimizeWindows = MinimizeBox.IsChecked == true;
+        _settings.PlaySounds = SoundBox.IsChecked == true;
+        _settings.Volume = VolumeSlider.Value;
         _settings.Exclusions = ExclusionsBox.Text
             .Split(new[] { ',', ';', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .ToList();
@@ -120,14 +128,19 @@ public partial class MainWindow : Window
         bool running = _controller.IsRunning;
 
         StartButton.IsEnabled = !running;
-        PauseButton.IsEnabled = running && stage?.Phase is not (RobotPhase.Returning or RobotPhase.Docking);
-        StopButton.IsEnabled = running && stage?.Phase is not (RobotPhase.Returning or RobotPhase.Docking);
+        bool parking = stage?.Phase is RobotPhase.Returning or RobotPhase.Docking or RobotPhase.Emptying;
+        PauseButton.IsEnabled = running && !parking;
+        StopButton.IsEnabled = running && !parking;
         UndoButton.IsEnabled = !running;
         PauseButton.Content = stage?.Paused == true ? "Wznów" : "Pauza";
 
         double battery = stage?.Battery ?? 100;
         BatteryFill.Width = Math.Max(0, BatteryTrack.ActualWidth * battery / 100);
         BatteryText.Text = $"{battery:0}%";
+
+        double bin = stage?.BinLevel ?? 0;
+        BinFill.Width = Math.Max(0, BinTrack.ActualWidth * bin);
+        BinText.Text = $"{bin * 100:0}%";
 
         CountText.Text = _controller.Collected.ToString();
         CountSub.Text = _controller.Total > 0 ? $"z {_controller.Total} elementów" : "zebranych elementów";
@@ -140,7 +153,8 @@ public partial class MainWindow : Window
             RobotPhase.Scanning => "Skanuję pulpit lidarem…",
             RobotPhase.Cleaning => $"Sprzątam pulpit – zostało {stage.Items.Count(i => i.State == ItemState.Discovered)}",
             RobotPhase.Returning => "Wracam do bazy…",
-            RobotPhase.Docking => "Dokowanie…",
+            RobotPhase.Docking => "Parkuję w stacji…",
+            RobotPhase.Emptying => "Stacja opróżnia pojemnik…",
             RobotPhase.Done => stage.Battery < 100 ? "Ładuję się – pulpit czysty ✨" : "Pulpit czysty ✨",
             _ => "",
         });

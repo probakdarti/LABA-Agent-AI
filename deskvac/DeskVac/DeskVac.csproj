@@ -22,4 +22,14 @@
     <Using Include="System.IO" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- odtwarzanie i miksowanie dźwięku (MIT) -->
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- dźwięki wkompilowane w .exe; generuje je deskvac/tools/make_sounds.py -->
+    <EmbeddedResource Include="Assets\Sounds\*.wav" />
+  </ItemGroup>
+
 </Project>

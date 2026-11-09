@@ -5,7 +5,7 @@ using DeskVac.Core;
 
 namespace DeskVac.Overlay;
 
-public enum RobotPhase { Docked, Undocking, Scanning, Cleaning, Returning, Docking, Done }
+public enum RobotPhase { Docked, Undocking, Scanning, Cleaning, Returning, Docking, Emptying, Done }
 
 /// <summary>
 /// Symulacja robota + rysowanie całej sceny na przezroczystej nakładce.
@@ -19,6 +19,7 @@ public sealed class Stage : FrameworkElement
     private const double Accel = 900;         // DIP/s²
     private const double TurnRate = 6.5;      // rad/s
     private const double ScanDuration = 2.6;  // s – pełny obrót lidaru
+    public const double EmptyDuration = 4.2;  // s – opróżnianie pojemnika w stacji (= długość dźwięku)
 
     private readonly List<FlyingSprite> _sprites = new();
     private readonly List<Particle> _particles = new();
@@ -34,6 +35,7 @@ public sealed class Stage : FrameworkElement
     private double _brushAngle;
     private double _turretAngle;
     private double _scanStart;
+    private double _emitAcc;
     private Point _undockTarget;
 
     public IReadOnlyList<DesktopItem> Items { get; private set; } = Array.Empty<DesktopItem>();
@@ -46,6 +48,9 @@ public sealed class Stage : FrameworkElement
     public double ScanAngle { get; private set; }
     public DesktopItem? Target { get; private set; }
 
+    /// <summary>Zapełnienie pojemnika robota 0..1 (rośnie z każdym zebranym elementem, zeruje się w stacji).</summary>
+    public double BinLevel { get; private set; }
+
     public Point DockTop { get; private set; }
     public Point DockSpot => new(DockTop.X, DockTop.Y - Radius + 4);
 
@@ -54,6 +59,9 @@ public sealed class Stage : FrameworkElement
 
     public event Action<RobotPhase>? PhaseChanged;
     public event Action? Finished;
+    public event Action<DesktopItem>? ItemDiscovered;
+    public event Action<DesktopItem>? ItemCollected;
+    public event Action<DesktopItem>? ItemSkipped;
 
     public Stage()
     {
@@ -82,6 +90,8 @@ public sealed class Stage : FrameworkElement
         _skips.Clear();
         StopRequested = false;
         Paused = false;
+        BinLevel = 0;
+        _emitAcc = 0;
         Position = DockSpot;
         Heading = -Math.PI / 2;
         _speed = 0;
@@ -123,7 +133,7 @@ public sealed class Stage : FrameworkElement
     private void Update(double dt)
     {
         _phaseTime += dt;
-        bool active = Phase is not (RobotPhase.Docked or RobotPhase.Done);
+        bool active = Phase is not (RobotPhase.Docked or RobotPhase.Done or RobotPhase.Emptying);
 
         Battery = active
             ? Math.Max(5, Battery - dt * 0.35)
@@ -185,12 +195,22 @@ public sealed class Stage : FrameworkElement
                     else
                     {
                         Position = DockSpot;
-                        SetPhase(RobotPhase.Done);
-                        Finished?.Invoke();
+                        _speed = 0;
+                        if (BinLevel > 0.001) SetPhase(RobotPhase.Emptying);
+                        else Finish();
                     }
                 }
                 break;
             }
+
+            case RobotPhase.Emptying:
+                UpdateEmptying(dt);
+                if (_phaseTime >= EmptyDuration)
+                {
+                    BinLevel = 0;
+                    Finish();
+                }
+                break;
         }
 
         if (active && _speed > 5 && dt > 0)
@@ -201,6 +221,38 @@ public sealed class Stage : FrameworkElement
         _skips.RemoveAll(s => _realTime - s.T > 1.2);
 
         UpdateEffects(dt);
+    }
+
+    private void Finish()
+    {
+        SetPhase(RobotPhase.Done);
+        Finished?.Invoke();
+    }
+
+    /// <summary>Stacja wysysa zawartość pojemnika: strumień „kurzu” z robota do stacji.</summary>
+    private void UpdateEmptying(double dt)
+    {
+        if (dt <= 0) return;
+        double t = _phaseTime / EmptyDuration;
+        // pojemnik opróżnia się głównie w pierwszej połowie (tak jak w dźwięku)
+        BinLevel = Math.Max(0, BinLevel - dt * Math.Max(0.05, 1.6 * (1 - t)) * 0.9);
+        double rate = t < 0.75 ? 70 * Math.Sin(Math.Min(1, t / 0.15) * Math.PI / 2) : 70 * (1 - (t - 0.75) / 0.25);
+        _emitAcc += rate * dt;
+        var target = new Point(DockTop.X, DockTop.Y + Radius * 0.55);
+        while (_emitAcc >= 1)
+        {
+            _emitAcc -= 1;
+            double a = _rng.NextDouble() * Math.PI * 2;
+            _particles.Add(new Particle
+            {
+                P = Position + new Vector(Math.Cos(a), Math.Sin(a)) * Radius * (0.2 + 0.5 * _rng.NextDouble()),
+                V = new Vector(_rng.NextDouble() * 60 - 30, 40 + _rng.NextDouble() * 60),
+                Life = 0.45 + _rng.NextDouble() * 0.3,
+                Size = 1 + _rng.NextDouble() * 1.8,
+                Teal = _rng.NextDouble() < 0.5,
+                Target = target,
+            });
+        }
     }
 
     private void UpdateScan()
@@ -222,6 +274,7 @@ public sealed class Stage : FrameworkElement
     {
         it.State = ItemState.Discovered;
         it.DiscoveredAt = _realTime;
+        ItemDiscovered?.Invoke(it);
     }
 
     private void UpdateCleaning(double dt)
@@ -258,10 +311,13 @@ public sealed class Stage : FrameworkElement
         {
             it.State = ItemState.Skipped;
             _skips.Add((it.Center, _realTime));
+            ItemSkipped?.Invoke(it);
             return;
         }
 
         it.State = ItemState.Collected;
+        BinLevel = Math.Min(1, BinLevel + 0.06);
+        ItemCollected?.Invoke(it);
         var dir = _rng.NextDouble() < 0.5 ? -1 : 1;
         _sprites.Add(new FlyingSprite(it, it.IconRect, _realTime, 0.55 + _rng.NextDouble() * 0.15, dir));
         for (int i = 0; i < 14; i++)
@@ -283,12 +339,13 @@ public sealed class Stage : FrameworkElement
     {
         foreach (var p in _particles)
         {
-            var toRobot = Position - p.P;
-            p.V += toRobot * 6 * dt;          // zasysanie
-            p.V *= Math.Pow(0.08, dt);       // tłumienie
+            var target = p.Target ?? Position;
+            var toTarget = target - p.P;
+            p.V += toTarget * (p.Target is null ? 6 : 14) * dt;   // zasysanie
+            p.V *= Math.Pow(0.08, dt);                           // tłumienie
             p.P += p.V * dt;
             p.Age += dt;
-            if (toRobot.Length < Radius * 0.4) p.Age = p.Life;
+            if (toTarget.Length < (p.Target is null ? Radius * 0.4 : 6)) p.Age = p.Life;
         }
         _particles.RemoveAll(p => p.Age >= p.Life);
         _sprites.RemoveAll(s => _realTime - s.Start > s.Duration);
@@ -328,7 +385,9 @@ public sealed class Stage : FrameworkElement
 
         double pulse = 0.5 + 0.5 * Math.Sin(_realTime * 4);
         bool charging = Phase is RobotPhase.Done or RobotPhase.Docked;
-        RobotPainter.DrawDock(dc, DockTop, Radius, charging, pulse);
+        bool emptying = Phase == RobotPhase.Emptying;
+        if (emptying) DrawDockGlow(dc);
+        RobotPainter.DrawDock(dc, DockTop, Radius, charging || emptying, emptying ? 0.5 + 0.5 * Math.Sin(_realTime * 14) : pulse);
 
         if (Target is not null && Phase == RobotPhase.Cleaning && Target.State == ItemState.Discovered)
             DrawTargetLock(dc, Target);
@@ -337,10 +396,29 @@ public sealed class Stage : FrameworkElement
         DrawSprites(dc);
 
         var led = Paused ? RobotPainter.Amber : charging ? RobotPainter.Charge : RobotPainter.Accent;
-        double ledPulse = Paused || charging ? pulse : 0.85 + 0.15 * pulse;
+        double ledPulse = Paused || charging ? pulse : emptying ? 0.5 + 0.5 * Math.Sin(_realTime * 14) : 0.85 + 0.15 * pulse;
         RobotPainter.DrawRobot(dc, Position, Heading, Radius, _brushAngle, _turretAngle, led, ledPulse);
 
         DrawSkips(dc);
+    }
+
+    private void DrawDockGlow(DrawingContext dc)
+    {
+        double t = _phaseTime / EmptyDuration;
+        double k = Math.Sin(Math.Clamp(t, 0, 1) * Math.PI);
+        var c = RobotPainter.Accent;
+        var center = new Point(DockTop.X, DockTop.Y + Radius * 0.5);
+        var glow = new RadialGradientBrush(Color.FromArgb((byte)(120 * k), c.R, c.G, c.B), Color.FromArgb(0, c.R, c.G, c.B));
+        dc.DrawEllipse(glow, null, center, Radius * 2.2, Radius * 1.4);
+
+        // pierścienie „ciągu powietrza” w stacji
+        for (int i = 0; i < 3; i++)
+        {
+            double ph = (_realTime * 2.2 + i / 3.0) % 1;
+            double r = Radius * (1.1 - 0.8 * ph);
+            var pen = new Pen(new SolidColorBrush(Color.FromArgb((byte)(110 * k * ph), c.R, c.G, c.B)), 1.5);
+            dc.DrawEllipse(null, pen, Position, r, r);
+        }
     }
 
     private void DrawTrail(DrawingContext dc)
@@ -554,5 +632,6 @@ public sealed class Stage : FrameworkElement
         public double Life;
         public double Size;
         public bool Teal;
+        public Point? Target;
     }
 }

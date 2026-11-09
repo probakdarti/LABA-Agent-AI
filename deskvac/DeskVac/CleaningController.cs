@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Threading;
+using DeskVac.Audio;
 using DeskVac.Core;
 using DeskVac.Native;
 using DeskVac.Overlay;
@@ -8,9 +9,11 @@ using Microsoft.Win32;
 namespace DeskVac;
 
 /// <summary>Łączy odczyt pulpitu, przenoszenie plików i animację robota w jedno „sprzątanie”.</summary>
-public sealed class CleaningController
+public sealed class CleaningController : IDisposable
 {
     private readonly Window _owner;
+    private readonly SoundEngine? _sound;
+    private DispatcherTimer? _panTimer;
     private OverlayWindow? _overlay;
     private DesktopView? _view;
     private Collector? _collector;
@@ -18,7 +21,28 @@ public sealed class CleaningController
     private bool _minimizedWindows;
     private long _bytes;
 
-    public CleaningController(Window owner) => _owner = owner;
+    public CleaningController(Window owner)
+    {
+        _owner = owner;
+        try
+        {
+            _sound = new SoundEngine();
+        }
+        catch (Exception)
+        {
+            _sound = null; // bez dźwięku, ale działa
+        }
+    }
+
+    public void ApplySoundSettings(AppSettings s)
+    {
+        if (_sound is null) return;
+        _sound.Enabled = s.PlaySounds;
+        _sound.Volume = (float)s.Volume;
+        if (!s.PlaySounds) _sound.MotorStop();
+    }
+
+    public void Dispose() => _sound?.Dispose();
 
     public Stage? Stage => _overlay?.Stage;
     public bool IsRunning { get; private set; }
@@ -34,6 +58,7 @@ public sealed class CleaningController
     public void Start(AppSettings settings)
     {
         if (IsRunning) return;
+        ApplySoundSettings(settings);
 
         _view = DesktopView.Open();
         _collector = new Collector(settings);
@@ -83,7 +108,12 @@ public sealed class CleaningController
 
     public void TogglePause()
     {
-        if (Stage is { } s && IsRunning) s.Paused = !s.Paused;
+        if (Stage is not { } s || !IsRunning) return;
+        s.Paused = !s.Paused;
+        // na pauzie silnik zwalnia do zera, po wznowieniu znów się rozpędza
+        if (s.Paused) _sound?.MotorStop();
+        else if (s.Phase is RobotPhase.Undocking or RobotPhase.Scanning or RobotPhase.Cleaning or RobotPhase.Returning)
+            _sound?.MotorStart();
     }
 
     public void Stop()
@@ -96,7 +126,59 @@ public sealed class CleaningController
         var o = new OverlayWindow();
         o.Stage.CollectHandler = OnCollect;
         o.Stage.Finished += OnStageFinished;
+        o.Stage.PhaseChanged += OnPhaseChanged;
+        o.Stage.ItemCollected += it => _sound?.PlaySuck(PanOf(it.Center.X));
+        o.Stage.ItemDiscovered += it => _sound?.PlayPing(PanOf(it.Center.X));
+        o.Stage.ItemSkipped += it => _sound?.Play("skip", 0.8f, PanOf(it.Center.X));
+
+        // silnik „podąża” za robotem w panoramie stereo
+        _panTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(50) };
+        _panTimer.Tick += (_, _) =>
+        {
+            if (_sound is not null && Stage is { } st) _sound.MotorPan = PanOf(st.Position.X);
+        };
+        _panTimer.Start();
         return o;
+    }
+
+    private float PanOf(double x)
+    {
+        double w = _overlay?.ActualWidth > 0 ? _overlay.ActualWidth : SystemParameters.VirtualScreenWidth;
+        return (float)Math.Clamp(x / w * 2 - 1, -1, 1);
+    }
+
+    private void OnPhaseChanged(RobotPhase phase)
+    {
+        if (_sound is null) return;
+        switch (phase)
+        {
+            case RobotPhase.Undocking:
+                _sound.Play("chime_start", 0.7f);
+                _sound.MotorStart();
+                break;
+            case RobotPhase.Scanning:
+                _sound.Play("scan", 0.9f, PanOf(Stage?.Position.X ?? 0));
+                break;
+            case RobotPhase.Docking:
+                _sound.MotorStop(); // wybieg silnika podczas parkowania
+                break;
+            case RobotPhase.Emptying:
+                _sound.MotorStop();
+                _sound.Play("dock", 0.9f, PanOf(Stage?.Position.X ?? 0));
+                Delay(350, () => _sound.Play("empty", 1f, PanOf(Stage?.Position.X ?? 0)));
+                break;
+            case RobotPhase.Done:
+                _sound.MotorStop();
+                Delay(250, () => _sound.Play("chime_done", 0.7f));
+                break;
+        }
+    }
+
+    private static void Delay(int ms, Action action)
+    {
+        var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(ms) };
+        t.Tick += (_, _) => { t.Stop(); action(); };
+        t.Start();
     }
 
     private bool OnCollect(DesktopItem item)
