@@ -11,11 +11,30 @@
     <SolidColorBrush x:Key="Text" Color="#E8ECEF"/>
     <SolidColorBrush x:Key="Muted" Color="#8A93A0"/>
     <SolidColorBrush x:Key="Warn" Color="#FFB33B"/>
+    <!-- pozostałe kolory motywu (wartości ustawia Platform/Theme.cs) -->
+    <SolidColorBrush x:Key="AccentText" Color="#0B1F1C"/>
+    <SolidColorBrush x:Key="ButtonBg" Color="#232932"/>
+    <SolidColorBrush x:Key="ButtonBorder" Color="#2F3640"/>
+    <SolidColorBrush x:Key="FieldBg" Color="#10141A"/>
+    <SolidColorBrush x:Key="FieldBorder" Color="#2F3640"/>
+    <SolidColorBrush x:Key="Track" Color="#262C34"/>
+    <SolidColorBrush x:Key="BinFill" Color="#F2F4F6"/>
+    <SolidColorBrush x:Key="DropBg" Color="#151A1F"/>
+    <SolidColorBrush x:Key="DropBorder" Color="#3A3220"/>
+    <SolidColorBrush x:Key="DropActive" Color="#FFB33B"/>
+    <SolidColorBrush x:Key="RowBg" Color="#12161B"/>
+    <SolidColorBrush x:Key="FooterBg" Color="#12161B"/>
+    <SolidColorBrush x:Key="MapBg" Color="#101317"/>
+    <SolidColorBrush x:Key="MapInk" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="MapRobot" Color="#F4F6F8"/>
+    <SolidColorBrush x:Key="MapDock" Color="#3A414B"/>
+    <SolidColorBrush x:Key="LogoBg" Color="#1F242B"/>
+    <SolidColorBrush x:Key="LogoDot" Color="#F2F4F6"/>
 
     <Style x:Key="PillButton" TargetType="Button">
-      <Setter Property="Foreground" Value="{StaticResource Text}"/>
-      <Setter Property="Background" Value="#232932"/>
-      <Setter Property="BorderBrush" Value="#2F3640"/>
+      <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+      <Setter Property="Background" Value="{DynamicResource ButtonBg}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorder}"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Padding" Value="14,9"/>
@@ -44,9 +63,9 @@
     </Style>
 
     <Style x:Key="AccentButton" TargetType="Button" BasedOn="{StaticResource PillButton}">
-      <Setter Property="Background" Value="{StaticResource Accent}"/>
-      <Setter Property="BorderBrush" Value="{StaticResource Accent}"/>
-      <Setter Property="Foreground" Value="#0B1F1C"/>
+      <Setter Property="Background" Value="{DynamicResource Accent}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+      <Setter Property="Foreground" Value="{DynamicResource AccentText}"/>
     </Style>
 
     <Style TargetType="ContextMenu">
@@ -54,13 +73,13 @@
     </Style>
 
     <Style TargetType="CheckBox">
-      <Setter Property="Foreground" Value="{StaticResource Text}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Text}"/>
       <Setter Property="Margin" Value="0,0,14,6"/>
       <Setter Property="FontSize" Value="13"/>
     </Style>
 
     <Style x:Key="Caption" TargetType="TextBlock">
-      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
       <Setter Property="FontSize" Value="11"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
       <Setter Property="Margin" Value="0,0,0,6"/>

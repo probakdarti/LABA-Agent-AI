@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Media;
 using DeskVac.Core;
 using DeskVac.Overlay;
+using DeskVac.Platform;
 
 namespace DeskVac.Panel;
 
@@ -10,15 +11,19 @@ public sealed class MiniMap : FrameworkElement
 {
     public CleaningController? Controller { get; set; }
 
-    private static readonly Brush BgBrush = Freeze(new SolidColorBrush(Color.FromRgb(0x10, 0x13, 0x17)));
-    private static readonly Brush DotBrush = Freeze(new SolidColorBrush(Color.FromArgb(18, 255, 255, 255)));
-    private static readonly Brush ScreenFill = Freeze(new SolidColorBrush(Color.FromArgb(10, 255, 255, 255)));
-    private static readonly Pen ScreenPen = Freeze(new Pen(new SolidColorBrush(Color.FromArgb(55, 255, 255, 255)), 1));
+    private static Brush Ink(byte alpha)
+    {
+        var c = Theme.Color("MapInk");
+        return Freeze(new SolidColorBrush(Color.FromArgb(alpha, c.R, c.G, c.B)));
+    }
 
     protected override void OnRender(DrawingContext dc)
     {
         var size = RenderSize;
-        dc.DrawRoundedRectangle(BgBrush, null, new Rect(size), 12, 12);
+        var DotBrush = Ink(Theme.IsDark ? (byte)18 : (byte)28);
+        var ScreenFill = Ink(Theme.IsDark ? (byte)10 : (byte)8);
+        var ScreenPen = Freeze(new Pen(Ink(Theme.IsDark ? (byte)55 : (byte)70), 1));
+        dc.DrawRoundedRectangle(Theme.Brush("MapBg"), null, new Rect(size), 12, 12);
         for (double x = 12; x < size.Width; x += 16)
             for (double y = 12; y < size.Height; y += 16)
                 dc.DrawRectangle(DotBrush, null, new Rect(x, y, 1, 1));
@@ -63,10 +68,10 @@ public sealed class MiniMap : FrameworkElement
             var p = Map(it.Center);
             Brush? b = it.State switch
             {
-                ItemState.Discovered => Brushes.WhiteSmoke,
+                ItemState.Discovered => Theme.IsDark ? Brushes.WhiteSmoke : Ink(200),
                 ItemState.Skipped => new SolidColorBrush(Color.FromRgb(0xFF, 0x6A, 0x6A)),
                 ItemState.Protected => new SolidColorBrush(RobotPainter.Amber),
-                ItemState.Hidden => new SolidColorBrush(Color.FromArgb(40, 255, 255, 255)),
+                ItemState.Hidden => Ink(40),
                 _ => null,
             };
             if (b is not null) dc.DrawEllipse(b, null, p, 2.3, 2.3);
@@ -79,11 +84,11 @@ public sealed class MiniMap : FrameworkElement
         }
 
         var d = Map(stage.DockTop);
-        dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromRgb(0x3A, 0x41, 0x4B)), null, new Rect(d.X - 7, d.Y, 14, 5), 2, 2);
+        dc.DrawRoundedRectangle(Theme.Brush("MapDock"), null, new Rect(d.X - 7, d.Y, 14, 5), 2, 2);
 
         var rp = Map(stage.Position);
         dc.DrawEllipse(new SolidColorBrush(Color.FromArgb(50, accent.R, accent.G, accent.B)), null, rp, 10, 10);
-        dc.DrawEllipse(new SolidColorBrush(Color.FromRgb(0xF4, 0xF6, 0xF8)), new Pen(new SolidColorBrush(accent), 1.5), rp, 5.5, 5.5);
+        dc.DrawEllipse(Theme.Brush("MapRobot"), new Pen(new SolidColorBrush(accent), 1.5), rp, 5.5, 5.5);
         dc.DrawLine(new Pen(new SolidColorBrush(accent), 2) { EndLineCap = PenLineCap.Round }, rp,
             rp + new Vector(Math.Cos(stage.Heading), Math.Sin(stage.Heading)) * 9);
     }

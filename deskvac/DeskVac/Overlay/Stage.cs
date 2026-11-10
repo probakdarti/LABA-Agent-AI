@@ -5,7 +5,7 @@ using DeskVac.Core;
 
 namespace DeskVac.Overlay;
 
-public enum RobotPhase { Docked, Undocking, Scanning, Cleaning, FolderApproach, FolderWork, Returning, Docking, Emptying, Done }
+public enum RobotPhase { Docked, Undocking, Scanning, Cleaning, FolderApproach, FolderWork, Returning, Docking, Emptying, Charging, Done }
 
 /// <summary>
 /// Symulacja robota + rysowanie całej sceny. Współrzędne „świata” to FIZYCZNE piksele ekranu
@@ -139,6 +139,25 @@ public sealed class Stage
         _skipScan = true;
     }
 
+    // ------------------------------------------------------------------ pojemnik na pulpicie (cykle sprzątania)
+
+    /// <summary>Ile elementów z pulpitu mieści pojemnik. Po zapełnieniu robot jedzie do stacji, opróżnia go, ładuje się i wraca.</summary>
+    public int BinCapacity { get; set; } = 30;
+
+    /// <summary>Szybkie ładowanie między cyklami (s).</summary>
+    public const double ChargeDuration = 3.0;
+
+    private int _binCount;
+    private bool _resumeAfterDock;
+    private bool _resumeCleaning;
+    private double _chargeFrom;
+
+    /// <summary>Elementy z pulpitu w pojemniku w tym cyklu.</summary>
+    public int BinCount => _binCount;
+
+    /// <summary>Robot wraca do bazy tylko po to, by opróżnić pełny pojemnik (potem sprząta dalej).</summary>
+    public bool ReturningToEmpty => _resumeAfterDock;
+
     private void FinishWork()
     {
         if (StopRequested || !(NextWork?.Invoke() ?? false)) SetPhase(RobotPhase.Returning);
@@ -255,6 +274,9 @@ public sealed class Stage
     {
         _skipScan = false;
         _folderQueue.Clear();
+        _binCount = 0;
+        _resumeAfterDock = false;
+        _resumeCleaning = false;
         Items = items;
         _labels.Clear();
         _sprites.Clear();
@@ -329,7 +351,7 @@ public sealed class Stage
     private void Update(double dt)
     {
         _phaseTime += dt;
-        bool active = Phase is not (RobotPhase.Docked or RobotPhase.Done or RobotPhase.Emptying);
+        bool active = Phase is not (RobotPhase.Docked or RobotPhase.Done or RobotPhase.Emptying or RobotPhase.Charging);
 
         Battery = active
             ? Math.Max(5, Battery - dt * 0.35)
@@ -348,7 +370,14 @@ public sealed class Stage
                 if (Distance(Position, _undockTarget) < 4 * K)
                 {
                     _scanStart = Heading;
-                    if (_skipScan) FinishWork();
+                    if (_resumeCleaning)
+                    {
+                        // powrót po opróżnieniu pojemnika – bez ponownego skanowania
+                        _resumeCleaning = false;
+                        Target = null;
+                        SetPhase(RobotPhase.Cleaning);
+                    }
+                    else if (_skipScan) FinishWork();
                     else SetPhase(RobotPhase.Scanning);
                 }
                 break;
@@ -419,9 +448,40 @@ public sealed class Stage
                 if (_phaseTime >= EmptyDuration)
                 {
                     BinLevel = 0;
-                    Finish();
+                    _binCount = 0;
+                    if (_resumeAfterDock && !StopRequested)
+                    {
+                        _chargeFrom = Battery;
+                        SetPhase(RobotPhase.Charging);
+                    }
+                    else
+                    {
+                        _resumeAfterDock = false;
+                        Finish();
+                    }
                 }
                 break;
+
+            case RobotPhase.Charging:
+            {
+                // szybkie ładowanie, potem dalej sprzątać
+                double t = Math.Clamp(_phaseTime / ChargeDuration, 0, 1);
+                Battery = _chargeFrom + (100 - _chargeFrom) * (1 - Math.Pow(1 - t, 2));
+                if (StopRequested)
+                {
+                    _resumeAfterDock = false;
+                    Finish();
+                }
+                else if (t >= 1)
+                {
+                    Battery = 100;
+                    _resumeAfterDock = false;
+                    _resumeCleaning = true;
+                    _undockTarget = new Point(DockSpot.X, DockSpot.Y - R * 4.2);
+                    SetPhase(RobotPhase.Undocking);
+                }
+                break;
+            }
         }
 
         if (active && _speed > 5 * K && dt > 0)
@@ -502,6 +562,15 @@ public sealed class Stage
             if (Distance(Position, it.Center) < R * 0.95) Collect(it);
         }
 
+        // pojemnik pełny, a na pulpicie jeszcze coś leży → do stacji opróżnić, naładować się i wrócić
+        if (_binCount >= BinCapacity && Items.Any(i => i.State == ItemState.Discovered))
+        {
+            _resumeAfterDock = true;
+            Target = null;
+            SetPhase(RobotPhase.Returning);
+            return;
+        }
+
         if (Target is null || Target.State != ItemState.Discovered)
         {
             Target = Items.Where(i => i.State == ItemState.Discovered)
@@ -530,7 +599,8 @@ public sealed class Stage
         }
 
         it.State = ItemState.Collected;
-        BinLevel = Math.Min(1, BinLevel + 0.06);
+        _binCount++;
+        BinLevel = Math.Min(1, (double)_binCount / Math.Max(1, BinCapacity));
         ItemCollected?.Invoke(it);
         var dir = _rng.NextDouble() < 0.5 ? -1 : 1;
         _sprites.Add(new FlyingSprite(it, it.IconRect, _realTime, 0.55 + _rng.NextDouble() * 0.15, dir));
@@ -598,7 +668,7 @@ public sealed class Stage
         if (Phase == RobotPhase.Scanning) DrawLidar(dc);
 
         double pulse = 0.5 + 0.5 * Math.Sin(_realTime * 4);
-        bool charging = Phase is RobotPhase.Done or RobotPhase.Docked;
+        bool charging = Phase is RobotPhase.Done or RobotPhase.Docked or RobotPhase.Charging;
         bool emptying = Phase == RobotPhase.Emptying;
         if (emptying) DrawDockGlow(dc);
         RobotPainter.DrawDock(dc, DockTop, R, charging || emptying, emptying ? 0.5 + 0.5 * Math.Sin(_realTime * 14) : pulse);

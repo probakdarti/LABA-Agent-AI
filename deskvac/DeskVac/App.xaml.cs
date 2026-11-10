@@ -55,6 +55,7 @@ public partial class App : Application
         }
 
         Settings = AppSettings.Load();
+        Theme.Apply(Settings.Theme);
         Settings.StartWithWindows = ShellIntegration.IsAutostartEnabled();
         ShellIntegration.Sync(Settings); // odświeża ścieżkę programu w autostarcie i menu kontekstowym
 
@@ -534,8 +535,8 @@ public partial class App : Application
         }
 
         bool running = Controller.IsRunning;
-        Item("🧹  Sprzątaj wszystko", () => StartTarget("all"), !running);
-        Item("Sprzątaj pulpit", () => StartTarget("desktop"), !running);
+        Item("🧹  Sprzątaj pulpit", () => StartTarget("desktop"), !running);
+        if (Settings.Folders.Any(f => f.Enabled)) Item("Sprzątaj wszystko (pulpit + foldery)", () => StartTarget("all"), !running);
         foreach (var job in Settings.Folders.Where(f => f.Enabled))
         {
             var id = job.Id;

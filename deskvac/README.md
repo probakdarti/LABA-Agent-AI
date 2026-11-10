@@ -156,6 +156,19 @@ python deskvac/tools/make_sounds.py moje_nagranie.mp3 deskvac/DeskVac/Assets/Sou
 
 Skrypt zakłada nagranie ~10 s: rozruch do 1,3 s, równa praca do 7,9 s, potem wybieg.
 
+## Pojemnik i cykle sprzątania pulpitu
+
+Pojemnik robota mieści **30 elementów z pulpitu** (Ustawienia → Ogólne, 10–100). Gdy się zapełni, a na
+pulpicie coś jeszcze leży, robot wraca do stacji, stacja opróżnia pojemnik, robot ładuje się (~3 s)
+i sprząta dalej od miejsca, w którym przerwał. Dotyczy tylko pulpitu – foldery (np. Pobrane) są
+porządkowane bez przerw. „Cofnij” cofa cały wyjazd, niezależnie od liczby powrotów do bazy.
+
+## Motywy
+
+Ustawienia → Ogólne → **Motyw**: Ciemny (domyślny), Jasny albo Systemowy – zgodny z *Ustawienia Windows →
+Personalizacja → Kolory → Tryb aplikacji* i przełączany na żywo. Robot i animacje na pulpicie wyglądają
+tak samo w każdym motywie.
+
 ## Ustawienia
 
 W panelu wybierasz, co zbierać (skróty, pliki, foldery), czy minimalizować okna na czas

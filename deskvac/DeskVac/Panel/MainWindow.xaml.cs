@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private readonly CleaningController _controller;
     private readonly DispatcherTimer _ui = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private bool _loading = true;
+    private string _target = "desktop";
 
     /// <summary>Prawdziwe zamknięcie (z menu „Zakończ”), a nie schowanie do zasobnika.</summary>
     public bool AllowClose { get; set; }
@@ -37,7 +38,7 @@ public partial class MainWindow : Window
         SoundBox.Click += (_, _) => SaveQuickSettings();
         VolumeSlider.ValueChanged += (_, _) => SaveQuickSettings();
 
-        SourceInitialized += (_, _) => UseDarkTitleBar();
+        SourceInitialized += (_, _) => Theme.ApplyTitleBar(this);
         Loaded += (_, _) => PlaceNearDock();
         IsVisibleChanged += (_, _) =>
         {
@@ -50,11 +51,11 @@ public partial class MainWindow : Window
         RefreshTargets();
         AuthorText.Text = $"{AppInfo.Product} {AppInfo.Version} · {AppInfo.Copyright}";
         Title = $"DeskVac – odkurzacz pulpitu · {AppInfo.Author}";
+        // wybór „Co sprzątać” obowiązuje do zamknięcia programu; przy starcie zawsze „Tylko pulpit”
         TargetBox.SelectionChanged += (_, _) =>
         {
             if (_loading || TargetBox.SelectedItem is not ComboBoxItem { Tag: string t }) return;
-            _settings.PanelTarget = t;
-            _settings.Save();
+            _target = t;
         };
 
         ProtectDrop.DragEnter += OnProtectDragOver;
@@ -90,9 +91,8 @@ public partial class MainWindow : Window
 
     private void HighlightDrop(bool on)
     {
-        ProtectDrop.BorderBrush = on
-            ? (System.Windows.Media.Brush)FindResource("Warn")
-            : new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x3A, 0x32, 0x20));
+        // SetResourceReference: kolor ramki dalej podąża za motywem
+        ProtectDrop.SetResourceReference(System.Windows.Controls.Border.BorderBrushProperty, on ? "DropActive" : "DropBorder");
         ProtectDropHint.Text = on ? "Upuść – robot nie ruszy tych elementów" : "Przeciągnij tu ikony z pulpitu – robot ich nie ruszy";
     }
 
@@ -134,19 +134,6 @@ public partial class MainWindow : Window
         Top = Math.Max(wa.Top + 24, wa.Bottom - ActualHeight - 150);
     }
 
-    private void UseDarkTitleBar()
-    {
-        try
-        {
-            int on = 1;
-            NativeMethods.DwmSetWindowAttribute(new WindowInteropHelper(this).Handle,
-                NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE, ref on, sizeof(int));
-        }
-        catch (Exception)
-        {
-            // starszy Windows – zostaje jasny pasek
-        }
-    }
 
     public void LoadQuickSettings()
     {
@@ -179,7 +166,7 @@ public partial class MainWindow : Window
     {
         SaveQuickSettings();
         ShowProblem(null);
-        var target = TargetBox.SelectedItem is ComboBoxItem { Tag: string t } ? t : "all";
+        var target = TargetBox.SelectedItem is ComboBoxItem { Tag: string t } ? t : "desktop";
         ((App)Application.Current).StartTarget(target, fromPanel: true);
     }
 
@@ -190,15 +177,12 @@ public partial class MainWindow : Window
         _loading = true;
         TargetBox.Items.Clear();
         var folders = _settings.Folders.Where(f => f.Enabled).ToList();
-        TargetBox.Items.Add(new ComboBoxItem
-        {
-            Content = folders.Count == 0 ? "Pulpit" : "Wszystko: pulpit + " + string.Join(", ", folders.Select(f => f.DisplayName)),
-            Tag = "all",
-        });
-        if (folders.Count > 0) TargetBox.Items.Add(new ComboBoxItem { Content = "Tylko pulpit", Tag = "desktop" });
+        TargetBox.Items.Add(new ComboBoxItem { Content = folders.Count == 0 ? "Pulpit" : "Tylko pulpit", Tag = "desktop" });
+        if (folders.Count > 0)
+            TargetBox.Items.Add(new ComboBoxItem { Content = "Wszystko: pulpit + " + string.Join(", ", folders.Select(f => f.DisplayName)), Tag = "all" });
         foreach (var f in folders)
             TargetBox.Items.Add(new ComboBoxItem { Content = $"Tylko folder „{f.DisplayName}”", Tag = f.Id });
-        TargetBox.SelectedItem = TargetBox.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _settings.PanelTarget)
+        TargetBox.SelectedItem = TargetBox.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _target)
                                  ?? TargetBox.Items[0];
         _loading = was;
     }
@@ -245,17 +229,20 @@ public partial class MainWindow : Window
         bool running = _controller.IsRunning;
 
         StartButton.IsEnabled = !running;
-        bool parking = stage.Phase is RobotPhase.Returning or RobotPhase.Docking or RobotPhase.Emptying;
+        bool parking = stage.Phase is RobotPhase.Returning or RobotPhase.Docking or RobotPhase.Emptying or RobotPhase.Charging;
+        bool midCycle = stage.ReturningToEmpty || stage.Phase == RobotPhase.Charging; // przerwa na opróżnienie – „Do bazy” kończy sprzątanie
         TargetBox.IsEnabled = !running;
         PauseButton.IsEnabled = running && !parking;
-        StopButton.IsEnabled = running && !parking;
+        StopButton.IsEnabled = running && (!parking || midCycle) && !stage.StopRequested;
         UndoButton.IsEnabled = !running;
         PauseButton.Content = stage.Paused ? "Wznów" : "Pauza";
 
         BatteryFill.Width = Math.Max(0, BatteryTrack.ActualWidth * stage.Battery / 100);
         BatteryText.Text = $"{stage.Battery:0}%";
         BinFill.Width = Math.Max(0, BinTrack.ActualWidth * stage.BinLevel);
-        BinText.Text = $"{stage.BinLevel * 100:0}%";
+        BinText.Text = stage.BinCount > 0 || stage.BinLevel <= 0
+            ? $"{stage.BinLevel * 100:0}% · {stage.BinCount}/{stage.BinCapacity}"
+            : $"{stage.BinLevel * 100:0}%";
 
         CountText.Text = _controller.Collected.ToString();
         CountSub.Text = _controller.Total > 0 ? $"z {_controller.Total} elementów" : "zebranych elementów";
@@ -269,9 +256,10 @@ public partial class MainWindow : Window
             RobotPhase.Cleaning => $"Sprzątam pulpit – zostało {stage.Items.Count(i => i.State == ItemState.Discovered)}",
             RobotPhase.FolderApproach => $"Jadę do folderu „{stage.PortalTitle}”…",
             RobotPhase.FolderWork => $"Porządkuję „{stage.PortalTitle}”…",
-            RobotPhase.Returning => "Wracam do bazy…",
+            RobotPhase.Returning => stage.ReturningToEmpty ? "Pojemnik pełny – wracam do bazy…" : "Wracam do bazy…",
             RobotPhase.Docking => "Parkuję w stacji…",
             RobotPhase.Emptying => "Stacja opróżnia pojemnik…",
+            RobotPhase.Charging => "Ładuję baterię – zaraz wracam do sprzątania…",
             RobotPhase.Done => stage.Battery < 100 ? "Ładuję się – pulpit czysty ✨" : "Pulpit czysty ✨",
             _ => "",
         };

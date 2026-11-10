@@ -28,18 +28,14 @@ public partial class SettingsWindow : Window
         InitializeComponent();
         _settings = settings;
         _controller = controller;
-        SourceInitialized += (_, _) =>
-        {
-            int on = 1;
-            try { NativeMethods.DwmSetWindowAttribute(new WindowInteropHelper(this).Handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE, ref on, sizeof(int)); }
-            catch (Exception) { /* jasny pasek */ }
-        };
+        SourceInitialized += (_, _) => Theme.ApplyTitleBar(this);
         _origOffsetX = settings.OffsetX;
         _origOffsetY = settings.OffsetY;
         // „Test namierzania” zmienia przesunięcie na próbę – bez „Zapisz” wracamy do poprzedniego
         Closed += (_, _) =>
         {
             if (_saved) return;
+            Theme.Apply(_settings.Theme); // anulowany podgląd motywu
             _settings.OffsetX = _origOffsetX;
             _settings.OffsetY = _origOffsetY;
         };
@@ -56,6 +52,10 @@ public partial class SettingsWindow : Window
         CloseToTrayBox.IsChecked = _settings.CloseToTray;
         ShowRobotBox.IsChecked = _settings.ShowRobotOnDesktop;
         QuickAllBox.IsChecked = _settings.QuickCleanIncludesFolders;
+        ThemeBox.SelectedItem = ThemeBox.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _settings.Theme) ?? ThemeBox.Items[0];
+        // podgląd motywu na żywo; bez „Zapisz” wraca poprzedni
+        ThemeBox.SelectionChanged += (_, _) => { if (ThemeBox.SelectedItem is ComboBoxItem { Tag: string t }) Theme.Apply(t); };
+        BinCapacityBox.Text = _settings.BinCapacity.ToString();
         AboutVersion.Text = $"{AppInfo.Product} {AppInfo.Version} – robot-odkurzacz pulpitu i folderów Windows";
         AboutCopyright.Text = $"{AppInfo.Copyright}. Wszelkie prawa zastrzeżone.";
         RenderFolders();
@@ -269,11 +269,18 @@ public partial class SettingsWindow : Window
             return;
         }
         if (!ApplyOffsets()) return;
+        if (!int.TryParse(BinCapacityBox.Text, out var capacity) || capacity < 10 || capacity > 100)
+        {
+            SaveInfo.Text = "Pojemność pojemnika: liczba od 10 do 100.";
+            return;
+        }
 
         _settings.StartWithWindows = AutostartBox.IsChecked == true;
         _settings.CloseToTray = CloseToTrayBox.IsChecked == true;
         _settings.ShowRobotOnDesktop = ShowRobotBox.IsChecked == true;
         _settings.QuickCleanIncludesFolders = QuickAllBox.IsChecked == true;
+        _settings.Theme = ThemeBox.SelectedItem is ComboBoxItem { Tag: string theme } ? theme : "dark";
+        _settings.BinCapacity = capacity;
 
         _settings.RemindOnStartup = RemindStartupBox.IsChecked == true;
         _settings.StartupDelayMinutes = delay;
@@ -366,8 +373,8 @@ public partial class SettingsWindow : Window
                 Padding = new Thickness(10, 8, 10, 4),
                 Margin = new Thickness(0, 0, 0, 8),
                 CornerRadius = new CornerRadius(10),
-                Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(0x12, 0x16, 0x1B)),
             });
+            ((Border)FoldersPanel.Children[^1]).SetResourceReference(Border.BackgroundProperty, "RowBg");
         }
     }
 

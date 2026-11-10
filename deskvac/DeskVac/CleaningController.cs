@@ -307,6 +307,7 @@ public sealed class CleaningController : IDisposable
         }
         if (cleanable == 0 && _pendingFolders.Count == 0) return 0;
 
+        Stage.BinCapacity = Math.Clamp(_settings.BinCapacity, 10, 100);
         _runId = Guid.NewGuid().ToString("N")[..12];
         _cts = new CancellationTokenSource();
         _summary.Clear();

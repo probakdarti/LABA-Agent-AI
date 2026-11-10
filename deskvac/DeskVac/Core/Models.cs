@@ -80,9 +80,16 @@ public sealed class AppSettings
     /// <summary>Pierwsze uruchomienie z tą funkcją dodaje „Pobrane” do listy.</summary>
     public bool FoldersInitialized { get; set; }
     /// <summary>Potrójne kliknięcie w robota sprząta pulpit i foldery „razem z pulpitem” (a nie sam pulpit).</summary>
-    public bool QuickCleanIncludesFolders { get; set; } = true;
-    /// <summary>Ostatni wybór w panelu: "all", "desktop" albo Id folderu.</summary>
-    public string PanelTarget { get; set; } = "all";
+    public bool QuickCleanIncludesFolders { get; set; }
+
+    /// <summary>Motyw okien: "dark" (domyślny), "light" albo "system" (jak w Windows).</summary>
+    public string Theme { get; set; } = "dark";
+
+    /// <summary>Ile elementów z pulpitu mieści pojemnik robota – po zapełnieniu robot jedzie opróżnić go do stacji.</summary>
+    public int BinCapacity { get; set; } = 30;
+
+    /// <summary>Wersja ustawień – do jednorazowych zmian domyślnych przy aktualizacji.</summary>
+    public int SettingsVersion { get; set; }
 
     /// <summary>Zebrane dzielone na foldery wg typu (Word, PDF, Zdjęcia…) zamiast wg daty sprzątania.</summary>
     public bool SortByType { get; set; } = true;
@@ -132,6 +139,7 @@ public sealed class AppSettings
                 var s = JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new AppSettings();
                 s.ReminderTimes = s.ReminderTimes.Where(t => TryParseTime(t, out _)).Distinct().ToList();
                 s.InitFolders();
+                s.Migrate();
                 return s;
             }
         }
@@ -139,9 +147,21 @@ public sealed class AppSettings
         {
             // uszkodzony plik – wracamy do domyślnych
         }
-        var fresh = new AppSettings();
+        var fresh = new AppSettings { SettingsVersion = 2 };
         fresh.InitFolders();
         return fresh;
+    }
+
+    private void Migrate()
+    {
+        if (SettingsVersion < 2)
+        {
+            // 1.3: potrójne kliknięcie i „Sprzątaj” domyślnie tylko pulpit
+            QuickCleanIncludesFolders = false;
+            SettingsVersion = 2;
+        }
+        BinCapacity = Math.Clamp(BinCapacity <= 0 ? 30 : BinCapacity, 10, 100);
+        if (Theme is not ("dark" or "light" or "system")) Theme = "dark";
     }
 
     private void InitFolders()

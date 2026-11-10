@@ -4,12 +4,12 @@
         Title="DeskVac – ustawienia"
         Width="520" Height="760" MinHeight="420" ResizeMode="CanResize"
         WindowStartupLocation="CenterScreen"
-        Background="{StaticResource Bg}" Foreground="{StaticResource Text}"
+        Background="{DynamicResource Bg}" Foreground="{DynamicResource Text}"
         FontFamily="Segoe UI Variable Display, Segoe UI" UseLayoutRounding="True">
   <Window.Resources>
     <Style x:Key="SettingsCard" TargetType="Border">
-      <Setter Property="Background" Value="{StaticResource Card}"/>
-      <Setter Property="BorderBrush" Value="{StaticResource CardBorder}"/>
+      <Setter Property="Background" Value="{DynamicResource Card}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorder}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="CornerRadius" Value="12"/>
       <Setter Property="Padding" Value="16,14"/>
@@ -21,16 +21,16 @@
       <Setter Property="Margin" Value="0,0,0,10"/>
     </Style>
     <Style x:Key="Hint" TargetType="TextBlock">
-      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
       <Setter Property="FontSize" Value="12"/>
       <Setter Property="TextWrapping" Value="Wrap"/>
       <Setter Property="Margin" Value="0,2,0,8"/>
     </Style>
     <Style x:Key="Field" TargetType="TextBox">
-      <Setter Property="Background" Value="#10141A"/>
-      <Setter Property="Foreground" Value="{StaticResource Text}"/>
-      <Setter Property="BorderBrush" Value="#2F3640"/>
-      <Setter Property="CaretBrush" Value="{StaticResource Accent}"/>
+      <Setter Property="Background" Value="{DynamicResource FieldBg}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Text}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource FieldBorder}"/>
+      <Setter Property="CaretBrush" Value="{DynamicResource Accent}"/>
       <Setter Property="Padding" Value="6,4"/>
       <Setter Property="FontSize" Value="13"/>
       <Setter Property="VerticalContentAlignment" Value="Center"/>
@@ -38,11 +38,11 @@
   </Window.Resources>
 
   <DockPanel>
-    <Border DockPanel.Dock="Bottom" Background="#12161B" BorderBrush="{StaticResource CardBorder}" BorderThickness="0,1,0,0" Padding="18,12">
+    <Border DockPanel.Dock="Bottom" Background="{DynamicResource FooterBg}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="0,1,0,0" Padding="18,12">
       <DockPanel>
         <Button DockPanel.Dock="Right" Content="Zapisz" Style="{StaticResource AccentButton}" Click="OnSave" MinWidth="110"/>
         <Button DockPanel.Dock="Right" Content="Anuluj" Style="{StaticResource PillButton}" Click="OnCancel" Margin="0,0,8,0" MinWidth="90"/>
-        <TextBlock x:Name="SaveInfo" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap"/>
+        <TextBlock x:Name="SaveInfo" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap"/>
       </DockPanel>
     </Border>
 
@@ -56,7 +56,22 @@
             <CheckBox x:Name="AutostartBox" Content="Uruchamiaj DeskVac razem z Windows (w tle)"/>
             <CheckBox x:Name="CloseToTrayBox" Content="Zamknięcie panelu chowa DeskVac do zasobnika"/>
             <CheckBox x:Name="ShowRobotBox" Content="Pokazuj robota stojącego przy stacji na pulpicie"/>
-            <CheckBox x:Name="QuickAllBox" Content="Potrójne kliknięcie w robota sprząta też foldery „razem z pulpitem” (np. Pobrane)"/>
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,8">
+              <TextBlock Text="Motyw:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <ComboBox x:Name="ThemeBox" Width="150" SelectedIndex="0">
+                <ComboBoxItem Content="Ciemny" Tag="dark"/>
+                <ComboBoxItem Content="Jasny" Tag="light"/>
+                <ComboBoxItem Content="Systemowy (jak w Windows)" Tag="system"/>
+              </ComboBox>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+              <TextBlock Text="Pojemnik robota mieści" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <TextBox x:Name="BinCapacityBox" Style="{StaticResource Field}" Width="50"/>
+              <TextBlock Text="elementów z pulpitu (10–100)" VerticalAlignment="Center" Margin="8,0,0,0"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource Hint}"
+                       Text="Gdy pojemnik się zapełni, robot wraca do stacji, opróżnia go, szybko się ładuje i sprząta pulpit dalej."/>
+            <CheckBox x:Name="QuickAllBox" Content="Potrójne kliknięcie w robota sprząta też foldery „razem z pulpitem” (domyślnie tylko pulpit)"/>
           </StackPanel>
         </Border>
 
@@ -140,11 +155,11 @@
             <TextBlock Style="{StaticResource Hint}"
                        Text="Przeciągnij ikony z pulpitu na listę poniżej albo: prawy przycisk na ikonie → Pokaż więcej opcji → „Nie odkurzaj!” (i „Pozwól odkurzać!”, żeby zdjąć ochronę). Zmiany działają od razu."/>
             <Grid>
-              <ListBox x:Name="ProtectedList" Height="190" Background="#10141A" Foreground="{StaticResource Text}"
-                       BorderBrush="#3A3220" BorderThickness="1" SelectionMode="Extended" FontSize="12" AllowDrop="True"
+              <ListBox x:Name="ProtectedList" Height="190" Background="{DynamicResource FieldBg}" Foreground="{DynamicResource Text}"
+                       BorderBrush="{DynamicResource DropBorder}" BorderThickness="1" SelectionMode="Extended" FontSize="12" AllowDrop="True"
                        ScrollViewer.HorizontalScrollBarVisibility="Disabled"/>
               <TextBlock x:Name="ProtectedEmpty" IsHitTestVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"
-                         TextAlignment="Center" Foreground="{StaticResource Muted}" FontSize="13"
+                         TextAlignment="Center" Foreground="{DynamicResource Muted}" FontSize="13"
                          Text="🛡&#x0a;Przeciągnij tutaj ikony z pulpitu"/>
             </Grid>
             <StackPanel Orientation="Horizontal" Margin="0,8,0,10">
@@ -183,10 +198,10 @@
               <Run Text="Autor: "/><Run Text="VERME Paweł Robak" FontWeight="SemiBold"/>
             </TextBlock>
             <TextBlock FontSize="13" Margin="0,0,0,2">
-              <Run Text="E-mail: "/><Hyperlink NavigateUri="mailto:pawelrobak@outlook.com" RequestNavigate="OnLink" Foreground="{StaticResource Accent}">pawelrobak@outlook.com</Hyperlink>
+              <Run Text="E-mail: "/><Hyperlink NavigateUri="mailto:pawelrobak@outlook.com" RequestNavigate="OnLink" Foreground="{DynamicResource Accent}">pawelrobak@outlook.com</Hyperlink>
             </TextBlock>
             <TextBlock FontSize="13" Margin="0,0,0,8">
-              <Run Text="Telefon: "/><Hyperlink NavigateUri="tel:+48504706334" RequestNavigate="OnLink" Foreground="{StaticResource Accent}">504 706 334</Hyperlink>
+              <Run Text="Telefon: "/><Hyperlink NavigateUri="tel:+48504706334" RequestNavigate="OnLink" Foreground="{DynamicResource Accent}">504 706 334</Hyperlink>
             </TextBlock>
             <TextBlock x:Name="AboutCopyright" Style="{StaticResource Hint}"/>
           </StackPanel>

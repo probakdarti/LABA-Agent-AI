@@ -20,17 +20,12 @@ internal static class Ui
         w.Title = title;
         w.Width = width;
         w.Height = height;
-        w.Background = Res("Bg");
-        w.Foreground = Res("Text");
+        w.SetResourceReference(Control.BackgroundProperty, "Bg");
+        w.SetResourceReference(Control.ForegroundProperty, "Text");
         w.FontFamily = new FontFamily("Segoe UI Variable Display, Segoe UI");
         w.UseLayoutRounding = true;
         w.WindowStartupLocation = WindowStartupLocation.CenterScreen;
-        w.SourceInitialized += (_, _) =>
-        {
-            int on = 1;
-            try { NativeMethods.DwmSetWindowAttribute(new WindowInteropHelper(w).Handle, NativeMethods.DWMWA_USE_IMMERSIVE_DARK_MODE, ref on, sizeof(int)); }
-            catch (Exception) { /* jasny pasek */ }
-        };
+        w.SourceInitialized += (_, _) => Theme.ApplyTitleBar(w);
     }
 
     public static Border Card(UIElement content) => new()
@@ -66,8 +61,8 @@ internal static class Ui
 
     public static TextBox Field(string text, double width) => new()
     {
-        Text = text, Width = width, Background = new SolidColorBrush(Color.FromRgb(0x10, 0x14, 0x1A)), Foreground = Res("Text"),
-        BorderBrush = new SolidColorBrush(Color.FromRgb(0x2F, 0x36, 0x40)), CaretBrush = Res("Accent"),
+        Text = text, Width = width, Background = Res("FieldBg"), Foreground = Res("Text"),
+        BorderBrush = Res("FieldBorder"), CaretBrush = Res("Accent"),
         Padding = new Thickness(6, 4, 6, 4), FontSize = 13, VerticalContentAlignment = VerticalAlignment.Center,
     };
 
@@ -134,7 +129,7 @@ public sealed class FolderPreviewWindow : Window
 
         var list = new ListView
         {
-            Background = new SolidColorBrush(Color.FromRgb(0x10, 0x14, 0x1A)),
+            Background = Ui.Res("FieldBg"),
             Foreground = Ui.Res("Text"),
             BorderBrush = Ui.Res("CardBorder"),
             FontSize = 12,
