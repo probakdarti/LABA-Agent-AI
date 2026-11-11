@@ -54,6 +54,21 @@
       <TextBlock x:Name="BinText" Grid.Column="2" Text="0%" Margin="10,0,0,0" FontSize="12" Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
     </Grid>
 
+    <!-- segregacja według treści -->
+    <Border Margin="0,10,0,0" CornerRadius="10" Padding="12,8" Background="{DynamicResource Card}" BorderBrush="{DynamicResource CardBorder}" BorderThickness="1">
+      <DockPanel>
+        <Button x:Name="SegButton" DockPanel.Dock="Right" Content="Segreguj" Style="{StaticResource PillButton}" Padding="12,5" Margin="10,0,0,0"
+                VerticalAlignment="Center" Click="OnSegregate" ToolTip="Czyta treść dokumentów i układa je w podfoldery tematyczne (Faktury, Umowy…)"/>
+        <StackPanel>
+          <TextBlock Text="SEGREGACJA (beta)" Style="{StaticResource Caption}" Margin="0,0,0,4"/>
+          <Border x:Name="SegTrack" Height="6" CornerRadius="3" Background="{DynamicResource Track}">
+            <Border x:Name="SegFill" HorizontalAlignment="Left" CornerRadius="3" Background="{DynamicResource Accent}" Width="0"/>
+          </Border>
+          <TextBlock x:Name="SegText" Text="Gotowa" FontSize="11" Foreground="{DynamicResource Muted}" Margin="0,4,0,0" TextTrimming="CharacterEllipsis"/>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
     <!-- statystyki -->
     <Grid Margin="0,12,0,0">
       <Grid.ColumnDefinitions>

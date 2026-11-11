@@ -11,6 +11,9 @@ public static class AppInfo
     public const string Phone = "504 706 334";
     public const string PhoneUri = "tel:+48504706334";
 
+    /// <summary>Kanał wydania wyświetlany przy numerze wersji.</summary>
+    public const string Channel = "beta";
+
     public static string Version
     {
         get
@@ -18,7 +21,8 @@ public static class AppInfo
             var v = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                     ?? Assembly.GetExecutingAssembly().GetName().Version?.ToString() ?? "";
             var plus = v.IndexOf('+');
-            return plus > 0 ? v[..plus] : v; // bez skrótu commita
+            var ver = plus > 0 ? v[..plus] : v; // bez skrótu commita
+            return string.IsNullOrEmpty(Channel) ? ver : $"{ver} {Channel}";
         }
     }
 

@@ -265,6 +265,21 @@ public partial class MainWindow : Window
         };
         if (running && _controller.IsBackgroundRun) StatusText.Text += " (w tle)";
 
+        // segregacja
+        var app = (App)Application.Current;
+        var seg = app.Segregation;
+        SegButton.Content = seg.Running ? "Zatrzymaj" : "Segreguj";
+        SegButton.IsEnabled = _settings.SegregationEnabled && !running;
+        SegFill.Width = seg.Total > 0 ? Math.Max(0, SegTrack.ActualWidth * Math.Min(1, (double)seg.Done / seg.Total)) : (seg.Running ? 0 : 0);
+        SegText.Text = _settings.SegregationEnabled ? seg.Status : "Wyłączona w Ustawieniach";
+
         Map.InvalidateVisual();
+    }
+
+    private void OnSegregate(object sender, RoutedEventArgs e)
+    {
+        var app = (App)Application.Current;
+        if (app.Segregation.Running) app.Segregation.Cancel();
+        else app.Segregation.Start(force: false, interactive: true, runId: null);
     }
 }

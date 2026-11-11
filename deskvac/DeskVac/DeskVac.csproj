@@ -13,7 +13,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>DeskVac</AssemblyName>
     <RootNamespace>DeskVac</RootNamespace>
-    <Version>1.4.0</Version>
+    <Version>2.0.0</Version>
     <ApplicationIcon>Assets\DeskVac.ico</ApplicationIcon>
     <Product>DeskVac</Product>
     <AssemblyTitle>DeskVac – robot-odkurzacz pulpitu</AssemblyTitle>
@@ -36,6 +36,8 @@
     <PackageReference Include="NAudio" Version="2.2.1" />
     <!-- natywne powiadomienia Windows z przyciskami (MIT) -->
     <PackageReference Include="Microsoft.Toolkit.Uwp.Notifications" Version="7.1.3" />
+    <!-- odczyt tekstu z PDF (Apache-2.0, czysty .NET) – segregacja według treści -->
+    <PackageReference Include="PdfPig" Version="0.1.16" />
   </ItemGroup>
 
   <ItemGroup>

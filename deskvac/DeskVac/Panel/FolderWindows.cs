@@ -5,6 +5,7 @@ using System.Windows.Data;
 using System.Windows.Interop;
 using System.Windows.Media;
 using DeskVac.Core;
+using DeskVac.Core.Segregation;
 using DeskVac.Native;
 using DeskVac.Platform;
 
@@ -269,5 +270,49 @@ public sealed class FolderJobWindow : Window
         _job.Schedule.Time = $"{(int)ts.TotalHours:00}:{ts.Minutes:00}";
         _job.Schedule.Days = days;
         DialogResult = true;
+    }
+}
+
+/// <summary>Podgląd segregacji: plik, skąd, dokąd i dlaczego (np. „treść: Faktura VAT, NIP, Do zapłaty”).</summary>
+public sealed class SegregationPreviewWindow : Window
+{
+    public SegregationPreviewWindow(SegregationPlan plan)
+    {
+        Ui.DarkWindow(this, "DeskVac – podgląd segregacji (beta)", 980, 660);
+        var root = new DockPanel { Margin = new Thickness(18, 16, 18, 16) };
+
+        var head = new StackPanel();
+        head.Children.Add(Ui.Header($"🗂 Segregacja według treści – {plan.Moves.Count} {Notifications.Plural(plan.Moves.Count)} do przeniesienia"));
+        var byTarget = plan.Moves.GroupBy(m => m.To).OrderByDescending(g => g.Count()).Take(10).Select(g => $"{g.Key} {g.Count()}");
+        head.Children.Add(new TextBlock { Text = string.Join("  ·  ", byTarget), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 6) });
+        head.Children.Add(Ui.Hint($"Sprawdzono {plan.Checked} plików. Bez zmian, bo treść nie dała pewnej odpowiedzi: {plan.Uncertain}. " +
+                                  $"Nie dało się odczytać (zaszyfrowane, uszkodzone, za duże): {plan.Unreadable}. Nic nie jest usuwane – „Cofnij” przywraca poprzednie miejsca."));
+        DockPanel.SetDock(head, Dock.Top);
+        root.Children.Add(head);
+
+        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
+        buttons.Children.Add(Ui.Button("Anuluj", (_, _) => { DialogResult = false; }));
+        var go = Ui.Button($"🗂  Segreguj ({plan.Moves.Count})", (_, _) => { DialogResult = true; }, accent: true);
+        go.IsEnabled = plan.Moves.Count > 0;
+        buttons.Children.Add(go);
+        DockPanel.SetDock(buttons, Dock.Bottom);
+        root.Children.Add(buttons);
+
+        var list = new ListView { Background = Ui.Res("FieldBg"), Foreground = Ui.Res("Text"), BorderBrush = Ui.Res("CardBorder"), FontSize = 12 };
+        var grid = new GridView();
+        grid.Columns.Add(new GridViewColumn { Header = "Plik", Width = 300, DisplayMemberBinding = new Binding("Name") });
+        grid.Columns.Add(new GridViewColumn { Header = "Było", Width = 150, DisplayMemberBinding = new Binding("From") });
+        grid.Columns.Add(new GridViewColumn { Header = "Będzie", Width = 170, DisplayMemberBinding = new Binding("To") });
+        grid.Columns.Add(new GridViewColumn { Header = "Dlaczego", Width = 300, DisplayMemberBinding = new Binding("Reason") });
+        list.View = grid;
+        list.ItemsSource = plan.Moves.Select(m => new
+        {
+            Name = Path.GetFileName(m.Source),
+            From = Path.GetFileName(m.Root) + " \\ " + m.From,
+            To = Path.GetFileName(m.Root) + " \\ " + m.To,
+            m.Reason,
+        }).ToList();
+        root.Children.Add(list);
+        Content = root;
     }
 }

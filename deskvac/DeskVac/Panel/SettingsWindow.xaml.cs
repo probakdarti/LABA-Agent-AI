@@ -74,6 +74,13 @@ public partial class SettingsWindow : Window
         FillDays(AutoDaysPanel, _settings.AutoCleanDays);
         AutoQuietBox.IsChecked = _settings.AutoCleanQuiet;
 
+        SegEnabledBox.IsChecked = _settings.SegregationEnabled;
+        SegAutoBox.IsChecked = _settings.SegregationAuto;
+        SegOcrBox.IsChecked = _settings.SegregationOcr;
+        SegImagesBox.IsChecked = _settings.SegregationImages;
+        try { OcrStatusText.Text = Core.Segregation.WindowsOcr.Status(); }
+        catch (Exception ex) { OcrStatusText.Text = "OCR niedostępny: " + ex.Message; }
+
         SortByTypeBox.IsChecked = _settings.SortByType;
         SortByTopicBox.IsChecked = _settings.SortByTopic;
         SortByTopicBox.IsEnabled = _settings.SortByType;
@@ -293,6 +300,10 @@ public partial class SettingsWindow : Window
         _settings.AutoCleanTime = $"{(int)autoTs.TotalHours:00}:{autoTs.Minutes:00}";
         _settings.AutoCleanDays = ReadDays(AutoDaysPanel);
         _settings.AutoCleanQuiet = AutoQuietBox.IsChecked == true;
+        _settings.SegregationEnabled = SegEnabledBox.IsChecked == true;
+        _settings.SegregationAuto = SegAutoBox.IsChecked == true;
+        _settings.SegregationOcr = SegOcrBox.IsChecked == true;
+        _settings.SegregationImages = SegImagesBox.IsChecked == true;
         _settings.SortByType = SortByTypeBox.IsChecked == true;
         _settings.SortByTopic = SortByTopicBox.IsChecked == true;
 
@@ -309,6 +320,23 @@ public partial class SettingsWindow : Window
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => Close();
+
+    private void OnResegregate(object sender, RoutedEventArgs e)
+    {
+        var seg = ((App)Application.Current).Segregation;
+        if (seg.Running)
+        {
+            SaveInfo.Text = "Segregacja już trwa – postęp widać w panelu.";
+            return;
+        }
+        if (!_settings.SegregationEnabled)
+        {
+            SaveInfo.Text = "Najpierw włącz segregację i zapisz ustawienia.";
+            return;
+        }
+        seg.Start(force: true, interactive: true, runId: null);
+        SaveInfo.Text = "Czytam wszystkie dokumenty – postęp w panelu, potem pokażę podgląd zmian.";
+    }
 
     private void OnLink(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
     {

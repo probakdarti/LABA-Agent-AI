@@ -275,6 +275,9 @@ public sealed class CleaningController : IDisposable
     private CancellationTokenSource? _cts;
     private string _runId = "";
 
+    /// <summary>Identyfikator ostatniego wyjazdu – segregacja po sprzątaniu dołącza do niego, więc „Cofnij” cofa oba etapy.</summary>
+    public string LastRunId => _runId;
+
     /// <summary>
     /// Rusza robota: pulpit (opcjonalnie) i podane foldery, po kolei w jednym wyjeździe.
     /// background = sprzątanie automatyczne: bez minimalizowania okien, nakładki pod oknami programów.

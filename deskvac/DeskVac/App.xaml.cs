@@ -27,12 +27,25 @@ public partial class App : Application
     public AppSettings Settings { get; private set; } = new();
     public CleaningController Controller { get; private set; } = null!;
     public MainWindow Panel { get; private set; } = null!;
+    public SegregationService Segregation { get; private set; } = null!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        var args = e.Args;
+
+        // proces roboczy segregacji: tylko czyta pliki (bez okien, bez blokady jednej kopii)
+        if (args.Length > 0 && args[0] == "--segregation-worker")
+        {
+            var worker = new Thread(Core.Segregation.Segregator.RunWorker) { IsBackground = false };
+            worker.SetApartmentState(ApartmentState.MTA);
+            worker.Start();
+            worker.Join();
+            Shutdown();
+            return;
+        }
+
         DispatcherUnhandledException += OnUnhandled;
         base.OnStartup(e);
-        var args = e.Args;
 
         if (args.Contains("--cleanup"))
         {
@@ -67,6 +80,8 @@ public partial class App : Application
         Controller.WidgetTripleClicked += QuickClean;
         Controller.WidgetMenuRequested += ShowMenu;
         Controller.Finished += OnCleaningFinished;
+
+        Segregation = new SegregationService(Settings, Controller);
 
         _tray = new TrayIcon("DeskVac – robot-odkurzacz pulpitu");
         _tray.LeftClick += TogglePanel;
@@ -218,6 +233,9 @@ public partial class App : Application
                 break;
             case Notifications.ActionPreviewFolder when a.TryGetValue("folder", out string previewId):
                 if (Settings.FindFolder(previewId) is { } pj) ShowFolderPreview(pj, startAfter: true);
+                break;
+            case Notifications.ActionSegregation:
+                Segregation.ShowPending();
                 break;
             case Notifications.ActionOpenFolder:
                 Panel.OpenCollectionFolder();
@@ -466,6 +484,10 @@ public partial class App : Application
     {
         if (Controller.IsBackgroundRun || !Panel.IsVisible)
             Notifications.Finished(Controller.Collected, Controller.Skipped, Controller.LastProblem, Controller.SummaryText);
+
+        // drugi etap w tle: segregacja według treści (dołącza do tego samego wyjazdu – wspólne „Cofnij”)
+        if (Settings.SegregationEnabled && Settings.SegregationAuto && Controller.Collected > 0)
+            Segregation.Start(force: false, interactive: false, runId: Controller.LastRunId);
     }
 
     // ------------------------------------------------------------------ okna i menu
@@ -558,6 +580,7 @@ public partial class App : Application
         Settings.Save();
         Panel.AllowClose = true;
         _settingsWindow?.Close();
+        Segregation?.Cancel();
         Controller.Dispose();
         _tray?.Dispose();
         _instance?.Dispose();

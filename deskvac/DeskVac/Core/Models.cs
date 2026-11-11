@@ -88,6 +88,17 @@ public sealed class AppSettings
     /// <summary>Ile elementów z pulpitu mieści pojemnik robota – po zapełnieniu robot jedzie opróżnić go do stacji.</summary>
     public int BinCapacity { get; set; } = 30;
 
+    // --- segregacja według treści (beta) ---
+    public bool SegregationEnabled { get; set; } = true;
+    /// <summary>Segregacja w tle po każdym sprzątaniu (nowe i zmienione pliki).</summary>
+    public bool SegregationAuto { get; set; } = true;
+    /// <summary>Skany PDF bez warstwy tekstowej czytane OCR-em Windows.</summary>
+    public bool SegregationOcr { get; set; } = true;
+    /// <summary>Także zdjęcia (OCR) – domyślnie nie, bo zdjęć bywa dużo, a rzadko są dokumentami.</summary>
+    public bool SegregationImages { get; set; }
+    /// <summary>Pierwsza segregacja wymaga obejrzenia podglądu; potem w tle automatycznie.</summary>
+    public bool SegregationConfirmed { get; set; }
+
     /// <summary>Wersja ustawień – do jednorazowych zmian domyślnych przy aktualizacji.</summary>
     public int SettingsVersion { get; set; }
 

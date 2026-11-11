@@ -52,6 +52,18 @@ public static class Notifications
             .Show());
     }
 
+    public const string ActionSegregation = "segregation";
+
+    public static void SegregationPreview(int count)
+    {
+        Try(() => new ToastContentBuilder()
+            .AddArgument("action", ActionSegregation)
+            .AddText($"🗂 Segregacja: {count} {Plural(count)} do uporządkowania według treści")
+            .AddText("Pierwszy raz pokażę Ci, co gdzie trafi. Potem segregacja będzie działać w tle sama.")
+            .AddButton(new ToastButton().SetContent("Pokaż podgląd").AddArgument("action", ActionSegregation))
+            .Show());
+    }
+
     public static void AutoCleanStarted(int count)
     {
         Try(() => new ToastContentBuilder()

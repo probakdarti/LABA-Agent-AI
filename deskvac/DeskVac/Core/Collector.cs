@@ -18,7 +18,8 @@ public sealed class CleanupLog
     /// <summary>Dla folderów: sprzątany folder (granica usuwania pustych podfolderów przy cofaniu).</summary>
     public string? RootFolder { get; set; }
 
-    public bool IsFolder => Kind == "folder";
+    public bool IsFolder => Kind is "folder" or "segregation";
+    public bool IsSegregation => Kind == "segregation";
 
     public static void Save(CleanupLog log, string file)
     {
@@ -189,6 +190,8 @@ public sealed class Collector
             {
                 if (!IsTrustedMove(log, m)) { failed++; continue; }
                 if (File.Exists(m.Source) || Directory.Exists(m.Source)) { failed++; continue; }
+                // segregacja mogła usunąć pusty folder tematu – odtwarzamy go
+                if (log.IsSegregation) Directory.CreateDirectory(Path.GetDirectoryName(m.Source)!);
                 if (Directory.Exists(m.Destination)) Directory.Move(m.Destination, m.Source);
                 else if (File.Exists(m.Destination)) File.Move(m.Destination, m.Source);
                 else { failed++; continue; }
@@ -231,6 +234,14 @@ public sealed class Collector
                 root.Length > 0 && path.StartsWith(Path.TrimEndingDirectorySeparator(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
             static bool Same(string a, string b) =>
                 string.Equals(Path.TrimEndingDirectorySeparator(a), Path.TrimEndingDirectorySeparator(b), StringComparison.OrdinalIgnoreCase);
+
+            if (log.IsSegregation)
+            {
+                // segregacja przenosi tylko w obrębie folderu głównego (PDF → PDF\Faktury)
+                var root = Path.GetFullPath(log.RootFolder ?? "");
+                if (root.Length == 0 || KnownFolders.WhyForbidden(root) is not null) return false;
+                return Under(src, root) && Under(dst, root);
+            }
 
             if (log.IsFolder)
             {

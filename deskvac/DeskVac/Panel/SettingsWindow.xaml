@@ -135,6 +135,22 @@
           </StackPanel>
         </Border>
 
+        <!-- SEGREGACJA -->
+        <Border Style="{StaticResource SettingsCard}">
+          <StackPanel>
+            <TextBlock Text="Segregacja według treści (beta)" Style="{StaticResource Header}"/>
+            <TextBlock Style="{StaticResource Hint}"
+                       Text="Robot czyta treść dokumentów (PDF, Word, Excel, PowerPoint, teksty) już posortowanych wg typu i układa je w podfoldery: Faktury, Umowy, Wyciągi bankowe, Oferty… Wszystko lokalnie na komputerze, bez internetu i bez AI. Gdy treść nie daje pewnej odpowiedzi, plik zostaje na miejscu."/>
+            <CheckBox x:Name="SegEnabledBox" Content="Włącz segregację według treści"/>
+            <CheckBox x:Name="SegAutoBox" Content="Segreguj automatycznie w tle po każdym sprzątaniu" Margin="22,0,14,6"/>
+            <CheckBox x:Name="SegOcrBox" Content="Czytaj skany PDF (OCR wbudowany w Windows)" Margin="22,0,14,6"/>
+            <CheckBox x:Name="SegImagesBox" Content="Czytaj też zdjęcia (wolniej – przydatne, gdy fotografujesz dokumenty)" Margin="22,0,14,6"/>
+            <TextBlock x:Name="OcrStatusText" Style="{StaticResource Hint}" Margin="22,0,0,8"/>
+            <Button Content="Segreguj ponownie wszystko (z podglądem)" Style="{StaticResource PillButton}" Padding="10,6"
+                    HorizontalAlignment="Left" Click="OnResegregate"/>
+          </StackPanel>
+        </Border>
+
         <!-- PORZĄDKOWANIE -->
         <Border Style="{StaticResource SettingsCard}">
           <StackPanel>

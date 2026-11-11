@@ -156,6 +156,24 @@ python deskvac/tools/make_sounds.py moje_nagranie.mp3 deskvac/DeskVac/Assets/Sou
 
 Skrypt zakłada nagranie ~10 s: rozruch do 1,3 s, równa praca do 7,9 s, potem wybieg.
 
+## Segregacja według treści (beta, od 2.0)
+
+Drugi etap po sprzątaniu: robot **czyta treść** dokumentów już posortowanych wg typu (w „Zebrane z pulpitu”
+i w sprzątanych folderach) i przenosi je do podfolderów tematycznych – np. `PDF\Faktury`, `PDF\Umowy`,
+`PDF\Wyciągi bankowe`, `Word\Instrukcje`. Poprawia też wcześniejsze pomyłki typu (np. `.apk` w „Inne”).
+
+- **Wszystko lokalnie, bez internetu i bez AI:** PDF – PdfPig (warstwa tekstowa), Word/Excel/PowerPoint/OpenDocument –
+  bezpośrednio z XML (bez Office, bez makr), skany PDF i (opcjonalnie) zdjęcia – OCR wbudowany w Windows.
+- **Klasyfikator punktowy:** charakterystyczne zwroty i wzorce (np. „Faktura VAT”, „Do zapłaty”, NIP → Faktury;
+  „zawarta w dniu”, „§ 1”, „zwanym dalej” → Umowy; „Saldo początkowe/końcowe” → Wyciągi bankowe), także po angielsku
+  i niemiecku. **Niepewny wynik = plik zostaje na miejscu.** Skan bez rozpoznanego tematu → `PDF\Skany`.
+- **Bezpieczeństwo:** pliki czyta osobny proces z limitem 30 s na plik (uszkodzony plik nie zawiesi DeskVac),
+  pierwsze 3 strony, pliki do 30 MB, XML bez DTD/encji zewnętrznych, limit rozmiaru w archiwach.
+- **Podgląd** przy pierwszej segregacji (plik, było, będzie, dlaczego), potem w tle automatycznie po każdym
+  sprzątaniu. „Cofnij” cofa sprzątanie i segregację razem. Pasek postępu „Segregacja” w panelu.
+- Ustawienia → *Segregacja według treści*: włącz/wyłącz, automatycznie po sprzątaniu, OCR skanów, zdjęcia,
+  „Segreguj ponownie wszystko (z podglądem)”.
+
 ## Pojemnik i cykle sprzątania pulpitu
 
 Pojemnik robota mieści **30 elementów z pulpitu** (Ustawienia → Ogólne, 10–100). Gdy się zapełni, a na
