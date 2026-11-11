@@ -112,7 +112,10 @@ public class FolderCleanerTests
         var plan = FolderCleaner.Plan(Job(t.Path), new AppSettings());
         Assert.Equal(2, plan.Moves.Count);
         Assert.Single(plan.Moves, m => m.IsDuplicate);
-        Assert.All(plan.Moves, m => Assert.Equal(t.Combine("PDF"), Path.GetDirectoryName(m.Destination)));
+        // obie kopie w tym samym folderze kategorii (np. PDF\Raporty), nigdy w „Duplikaty”
+        Assert.Single(plan.Moves.Select(m => Path.GetDirectoryName(m.Destination)).Distinct(StringComparer.OrdinalIgnoreCase));
+        Assert.All(plan.Moves, m => Assert.StartsWith(t.Combine("PDF"), m.Destination, StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(plan.Moves, m => m.Category == FolderCleaner.DuplicatesFolder);
     }
 
     [Fact]

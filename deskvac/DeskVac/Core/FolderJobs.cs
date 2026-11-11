@@ -127,7 +127,9 @@ public static class KnownFolders
         {
             var full = System.IO.Path.TrimEndingDirectorySeparator(System.IO.Path.GetFullPath(path));
             if (!Directory.Exists(full)) return "Folder nie istnieje.";
-            if (System.IO.Path.GetPathRoot(full)?.TrimEnd('\\').Equals(full, StringComparison.OrdinalIgnoreCase) == true)
+            // uwaga: TrimEndingDirectorySeparator zostawia „C:\\” – porównujemy obie strony bez końcowego „\\”
+            var driveRoot = System.IO.Path.GetPathRoot(full);
+            if (!string.IsNullOrEmpty(driveRoot) && driveRoot.TrimEnd('\\').Equals(full.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
                 return "Nie sprzątam całego dysku.";
 
             string[] forbidden =
