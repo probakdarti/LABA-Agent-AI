@@ -23,7 +23,9 @@ public static class Categorizer
         ("Filmy", new[] { ".mp4", ".mov", ".avi", ".mkv", ".wmv", ".webm", ".m4v", ".3gp", ".flv", ".mpg", ".mpeg", ".mts", ".m2ts", ".ts" }),
         ("Muzyka", new[] { ".mp3", ".wav", ".flac", ".aac", ".m4a", ".ogg", ".wma", ".opus", ".aiff", ".mid", ".midi" }),
         ("Archiwa", new[] { ".zip", ".rar", ".7z", ".tar", ".gz", ".tgz", ".bz2", ".xz", ".cab", ".iso", ".img" }),
-        ("Instalatory", new[] { ".exe", ".msi", ".msix", ".msixbundle", ".appx", ".appxbundle", ".appinstaller", ".bat", ".cmd", ".ps1", ".vbs", ".reg" }),
+        ("Instalatory", new[] { ".exe", ".msi", ".msix", ".msixbundle", ".appx", ".appxbundle", ".appinstaller", ".bat", ".cmd", ".ps1", ".vbs", ".reg",
+                                ".apk", ".apks", ".xapk", ".aab", ".ipa" }),   // także aplikacje na telefon
+        ("Niedokończone pobrania", new[] { ".crdownload", ".part", ".partial", ".download", ".opdownload", ".!ut", ".!qb", ".aria2", ".bc!", ".dlpart" }),
         ("E-maile", new[] { ".eml", ".msg", ".oft", ".pst", ".ics", ".vcf" }),
         ("Grafika i projekty", new[] { ".psd", ".ai", ".eps", ".svg", ".indd", ".xd", ".fig", ".sketch", ".cdr", ".afdesign", ".afphoto", ".blend", ".xcf" }),
         ("CAD", new[] { ".dwg", ".dxf", ".dwf", ".step", ".stp", ".iges", ".igs", ".stl", ".skp", ".rvt", ".ifc", ".sldprt", ".sldasm" }),
@@ -38,7 +40,8 @@ public static class Categorizer
     /// <summary>Kategorie, w których dzielimy dalej po temacie (słowa w nazwie).</summary>
     private static readonly HashSet<string> TopicCategories = new(StringComparer.OrdinalIgnoreCase)
     {
-        "Word", "Excel", "PowerPoint", "PDF", "Teksty", "E-maile", "Archiwa", "Foldery", "Inne", "Skróty do dokumentów", "Skróty do folderów",
+        // „Inne” celowo bez tematów: nieznane pliki z przypadkowym słowem w nazwie (np. „Scan.Plus…”) nie trafią do Skanów
+        "Word", "Excel", "PowerPoint", "PDF", "Teksty", "E-maile", "Archiwa", "Foldery", "Skróty do dokumentów", "Skróty do folderów",
     };
 
     // ------------------------------------------------------------------ tematy (słowa kluczowe, początki słów, bez polskich znaków)
@@ -47,13 +50,13 @@ public static class Categorizer
     {
         ("Umowy", new[]
         {
-            "umow", "aneks", "kontrakt", "porozumien", "contract", "agreement", "vertrag", "vereinbarung", "contrat", "contrato",
+            "umow", "aneks", "amendment", "addendum", "kontrakt", "porozumien", "contract", "agreement", "vertrag", "vereinbarung", "contrat", "contrato",
             "contratto", "accordo", "smlouv", "zmluv", "overeenkomst", "avtal", "sopimu", "szerzodes", "sozlesme", "dohoda",
             "договор", "контракт", "угод", "nda",
         }),
         ("Faktury", new[]
         {
-            "faktur", "fv", "proforma", "paragon", "rachun", "invoice", "receipt", "rechnung", "quittung", "facture",
+            "faktur", "fv", "fvat", "fs", "fa", "fz", "fk", "proforma", "paragon", "rachun", "invoice", "receipt", "rechnung", "quittung", "facture",
             "factura", "fattura", "ricevuta", "faktura", "factuur", "szamla", "fatura", "счет", "счёт", "рахунок", "квитанц",
         }),
         ("Oferty", new[]
@@ -72,7 +75,7 @@ public static class Categorizer
         }),
         ("Raporty", new[]
         {
-            "raport", "report", "sprawozdan", "zestawien", "analiz", "statystyk", "bericht", "auswertung", "rapport", "informe", "relazione",
+            "raport", "report", "audyt", "audit", "sprawozdan", "zestawien", "analiz", "statystyk", "bericht", "auswertung", "rapport", "informe", "relazione",
             "zprav", "sprava", "verslag", "jelentes", "rapor", "отчет", "отчёт", "звіт",
         }),
         ("Cenniki", new[] { "cennik", "pricelist", "price", "prices", "preisliste", "tarif", "tarifa", "listino", "cenik", "прайс" }),
@@ -161,19 +164,34 @@ public static class Categorizer
         if (tokens.Count == 0) return null;
         var joined = string.Concat(tokens);
 
+        // Punktacja zamiast „pierwszy temat z listy wygrywa”: słowo na początku nazwy waży najwięcej
+        // („Instrukcja … KONTRAKT” → Instrukcje, nie Umowy). Remis rozstrzyga kolejność listy.
+        string? best = null;
+        double bestScore = 0;
         foreach (var (folder, stems) in Topics)
         {
-            foreach (var stem in stems)
+            double score = 0;
+            for (int i = 0; i < tokens.Count; i++)
             {
-                // krótkie skróty (cv, fv, pit, nda…) – tylko całe słowo, żeby nie łapać przypadkowych liter
-                bool exact = stem.Length <= 3;
-                foreach (var t in tokens)
-                    if (exact ? t == stem : t.StartsWith(stem, StringComparison.Ordinal)) return folder;
-                // np. „PriceList”, „pricelist” sklejone bez spacji
-                if (!exact && stem.Length >= 6 && joined.Contains(stem, StringComparison.Ordinal)) return folder;
+                var t = tokens[i];
+                foreach (var stem in stems)
+                {
+                    // krótkie skróty (cv, fv, fs, pit, nda…) – tylko całe słowo, żeby nie łapać przypadkowych liter
+                    bool hit = stem.Length <= 3 ? t == stem : t.StartsWith(stem, StringComparison.Ordinal);
+                    if (!hit) continue;
+                    score += i == 0 ? 3 : i == 1 ? 2 : 1;
+                    break;
+                }
+            }
+            // np. „PriceList”, „pricelist” sklejone bez spacji
+            if (score == 0 && stems.Any(st => st.Length >= 6 && joined.Contains(st, StringComparison.Ordinal))) score = 0.5;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = folder;
             }
         }
-        return null;
+        return best;
     }
 
     // ------------------------------------------------------------------ pomocnicze

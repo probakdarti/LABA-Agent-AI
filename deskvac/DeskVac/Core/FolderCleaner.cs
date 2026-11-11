@@ -27,6 +27,10 @@ public sealed class FolderPlan
 public static class FolderCleaner
 {
     public const string DuplicatesFolder = "Duplikaty";
+    public const string AbandonedFolder = "Niedokończone pobrania";
+
+    /// <summary>Niedokończone pobieranie nieruszane od tylu dni uznajemy za porzucone.</summary>
+    private static readonly TimeSpan AbandonedAfter = TimeSpan.FromDays(7);
 
     /// <summary>Niedokończone pobierania przeglądarek i menedżerów pobierania.</summary>
     private static readonly HashSet<string> PartialExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -55,6 +59,7 @@ public static class FolderCleaner
         var now = DateTime.Now;
 
         var candidates = new List<FileSystemInfo>();
+        var abandoned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var info in new DirectoryInfo(root).EnumerateFileSystemInfos())
         {
             ct.ThrowIfCancellationRequested();
@@ -80,8 +85,13 @@ public static class FolderCleaner
             }
             else if (PartialExtensions.Contains(info.Extension) || info.Name.StartsWith("Unconfirmed ", StringComparison.OrdinalIgnoreCase))
             {
-                plan.SkippedPartial++;
-                continue;
+                // trwające pobieranie zostaje; porzucone (nieruszane od tygodnia) trafia do „Niedokończone pobrania”
+                if (now - info.LastWriteTime < AbandonedAfter)
+                {
+                    plan.SkippedPartial++;
+                    continue;
+                }
+                abandoned.Add(info.FullName);
             }
 
             if (settings.IsExcluded(info.Name, info.FullName))
@@ -104,7 +114,7 @@ public static class FolderCleaner
         var duplicates = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         if (job.DetectDuplicates && withDuplicates)
         {
-            foreach (var group in candidates.OfType<FileInfo>().Where(f => f.Length > 0).GroupBy(f => f.Length).Where(g => g.Count() > 1))
+            foreach (var group in candidates.OfType<FileInfo>().Where(f => f.Length > 0 && !abandoned.Contains(f.FullName)).GroupBy(f => f.Length).Where(g => g.Count() > 1))
             {
                 ct.ThrowIfCancellationRequested();
                 foreach (var sameHash in group.GroupBy(f => HashOf(f.FullName)).Where(g => g.Key is not null && g.Count() > 1))
@@ -120,7 +130,9 @@ public static class FolderCleaner
         foreach (var info in candidates.OrderBy(i => i.Name, StringComparer.CurrentCultureIgnoreCase))
         {
             bool dup = duplicates.Contains(info.FullName);
-            var category = dup ? DuplicatesFolder : Categorizer.RelativeFolder(info.FullName, settings.SortByTopic);
+            var category = abandoned.Contains(info.FullName) ? AbandonedFolder
+                : dup ? DuplicatesFolder
+                : Categorizer.RelativeFolder(info.FullName, settings.SortByTopic);
             var dest = UniqueTarget(Path.Combine(root, category, info.Name), taken);
             taken.Add(dest);
             plan.Moves.Add(new PlannedMove(info.FullName, dest, category, dup, info is DirectoryInfo, info is FileInfo f ? f.Length : 0));
