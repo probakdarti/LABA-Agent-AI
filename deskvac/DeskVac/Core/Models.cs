@@ -99,6 +99,9 @@ public sealed class AppSettings
     /// <summary>Pierwsza segregacja wymaga obejrzenia podglądu; potem w tle automatycznie.</summary>
     public bool SegregationConfirmed { get; set; }
 
+    /// <summary>Domyślna opcja „Co sprzątać” (panel, potrójne kliknięcie, menu zasobnika) – patrz Targets.</summary>
+    public string DefaultTarget { get; set; } = Targets.Desktop;
+
     /// <summary>Wersja ustawień – do jednorazowych zmian domyślnych przy aktualizacji.</summary>
     public int SettingsVersion { get; set; }
 

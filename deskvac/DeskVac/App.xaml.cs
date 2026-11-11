@@ -69,6 +69,7 @@ public partial class App : Application
 
         Settings = AppSettings.Load();
         Theme.Apply(Settings.Theme);
+        FolderIcon.Ensure(new Collector(Settings).BaseFolder); // ikona stacji dla już istniejącego folderu
         Settings.StartWithWindows = ShellIntegration.IsAutostartEnabled();
         ShellIntegration.Sync(Settings); // odświeża ścieżkę programu w autostarcie i menu kontekstowym
 
@@ -250,8 +251,7 @@ public partial class App : Application
     private void QuickClean()
     {
         if (Controller.IsRunning) return;
-        var folders = Settings.QuickCleanIncludesFolders ? Settings.FoldersWithDesktop.ToList() : new List<FolderJob>();
-        Launch(desktop: true, folders, fromPanel: false);
+        StartTarget(Targets.Normalize(Settings.DefaultTarget, Settings));
     }
 
     // ------------------------------------------------------------------ cele sprzątania: pulpit, foldery, wszystko
@@ -260,18 +260,14 @@ public partial class App : Application
     public void StartTarget(string target, bool fromPanel = false)
     {
         if (Controller.IsRunning) return;
-        switch (target)
+        var (desktop, folders) = Targets.Resolve(target, Settings);
+        folders = folders.Where(f => Directory.Exists(f.Path)).ToList();
+        if (!desktop && folders.Count == 0)
         {
-            case "desktop":
-                Launch(true, new List<FolderJob>(), fromPanel);
-                break;
-            case "all":
-                Launch(true, Settings.Folders.Where(f => f.Enabled && Directory.Exists(f.Path)).ToList(), fromPanel);
-                break;
-            default:
-                if (Settings.FindFolder(target) is { } job) Launch(false, new List<FolderJob> { job }, fromPanel);
-                break;
+            Controller.SayFromDock("Nie mam folderu do sprzątania!\nDodaj go w Ustawieniach. 🙂", sound: Settings.PlaySounds);
+            return;
         }
+        Launch(desktop, folders, fromPanel);
     }
 
     private void Launch(bool desktop, List<FolderJob> folders, bool fromPanel)
@@ -557,12 +553,12 @@ public partial class App : Application
         }
 
         bool running = Controller.IsRunning;
-        Item("🧹  Sprzątaj pulpit", () => StartTarget("desktop"), !running);
-        if (Settings.Folders.Any(f => f.Enabled)) Item("Sprzątaj wszystko (pulpit + foldery)", () => StartTarget("all"), !running);
-        foreach (var job in Settings.Folders.Where(f => f.Enabled))
+        var def = Targets.Normalize(Settings.DefaultTarget, Settings);
+        foreach (var (id, label) in Targets.Options(Settings, withSingleFolders: true))
         {
-            var id = job.Id;
-            Item($"Sprzątaj „{job.DisplayName}”", () => StartTarget(id), !running);
+            if (id is null) { menu.Items.Add(new Separator()); continue; }
+            var target = id;
+            Item((id == def ? "🧹  " : "      ") + "Sprzątaj: " + label, () => StartTarget(target), !running);
         }
         if (running) Item("⏹  Zatrzymaj i wróć do bazy", Controller.Stop);
         Item("Pokaż panel", Panel.ShowPanel);

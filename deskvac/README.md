@@ -85,7 +85,7 @@ W **Ustawieniach → Sprzątane foldery** jest lista folderów (domyślnie **Pob
 Pobrane\
 ├─ PDF\Faktury\  PDF\Umowy\  Word\…  Excel\…  Instalatory\  Archiwa\  Zdjęcia\Zrzuty ekranu\ …
 ├─ Foldery\      ← luźne podfoldery (np. rozpakowane archiwa)
-├─ Duplikaty\    ← identyczne kopie (ta sama zawartość, SHA-256) – nic nie jest usuwane
+├─ Niedokończone pobrania\  ← porzucone .part/.crdownload (nieruszane od 7 dni)
 └─ (już istniejące foldery kategorii zostają na miejscu)
 ```
 
@@ -155,6 +155,25 @@ python deskvac/tools/make_sounds.py moje_nagranie.mp3 deskvac/DeskVac/Assets/Sou
 ```
 
 Skrypt zakłada nagranie ~10 s: rozruch do 1,3 s, równa praca do 7,9 s, potem wybieg.
+
+## Co sprzątać
+
+Lista w panelu, menu zasobnika i potrójne kliknięcie w robota używają tych samych opcji:
+**Tylko pulpit** (domyślnie) · Tylko folder Pobrane · Wybrane foldery dodatkowe · Pulpit i Pobrane ·
+Wszystko (pulpit + Pobrane + foldery) · oraz pod kreską pojedyncze foldery dodatkowe.
+Domyślną opcję zmienisz w Ustawieniach → Ogólne → *Domyślnie sprzątaj*.
+
+Identyczne kopie plików (ta sama zawartość) trafiają **obok oryginału**, do tego samego folderu kategorii,
+z własną nazwą. Osobny folder „Duplikaty” można włączyć w ustawieniach folderu; stary folder „Duplikaty”
+segregacja rozkłada do właściwych folderów. Folder „Zebrane z pulpitu” ma własną ikonę stacji dokującej
+(ukryte `desktop.ini` + `DeskVac.ico` w środku – zostaje także po odinstalowaniu).
+
+## Testy automatyczne
+
+`deskvac/DeskVac.Tests` (xUnit) – uruchamiane w GitHub Actions na Windows **przed** zbudowaniem instalatora;
+gdy któryś test nie przejdzie, instalator nie powstaje. Obejmują m.in. reguły nazw, klasyfikator treści,
+odczyt Word/PDF, ochronę przed XXE, porzucone pobrania, świeże pliki, kopie obok oryginałów, segregację
+z cofaniem, ikonę folderu, opcje „Co sprzątać” i odporność „Cofnij” na zmieniony dziennik.
 
 ## Segregacja według treści (beta, od 2.0)
 

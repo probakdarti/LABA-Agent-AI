@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 env:
-  DESKVAC_VERSION: "2.0.${{ github.run_number }}"
+  DESKVAC_VERSION: "2.1.${{ github.run_number }}"
   # podpis cyfrowy włącza się sam, gdy w Settings → Secrets są SIGNING_PFX_BASE64 i SIGNING_PFX_PASSWORD
   HAS_CERT: ${{ secrets.SIGNING_PFX_BASE64 != '' }}
 
@@ -25,6 +25,10 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0.x"
+
+      # Testy automatyczne – jeśli któryś nie przejdzie, instalator nie powstanie
+      - name: Testy automatyczne
+        run: dotnet test deskvac/DeskVac.Tests/DeskVac.Tests.csproj -c Release --logger "console;verbosity=normal"
 
       # Aplikacja jako zwykły folder (nie „samorozpakowujący się” jeden plik, bez kompresji) –
       # pakiety antywirusowe znacznie rzadziej biorą takie programy za podejrzane.

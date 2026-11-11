@@ -51,7 +51,7 @@ public partial class SettingsWindow : Window
         AutostartBox.IsChecked = _settings.StartWithWindows;
         CloseToTrayBox.IsChecked = _settings.CloseToTray;
         ShowRobotBox.IsChecked = _settings.ShowRobotOnDesktop;
-        QuickAllBox.IsChecked = _settings.QuickCleanIncludesFolders;
+        FillDefaultTargets();
         ThemeBox.SelectedItem = ThemeBox.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _settings.Theme) ?? ThemeBox.Items[0];
         // podgląd motywu na żywo; bez „Zapisz” wraca poprzedni
         ThemeBox.SelectionChanged += (_, _) => { if (ThemeBox.SelectedItem is ComboBoxItem { Tag: string t }) Theme.Apply(t); };
@@ -285,7 +285,7 @@ public partial class SettingsWindow : Window
         _settings.StartWithWindows = AutostartBox.IsChecked == true;
         _settings.CloseToTray = CloseToTrayBox.IsChecked == true;
         _settings.ShowRobotOnDesktop = ShowRobotBox.IsChecked == true;
-        _settings.QuickCleanIncludesFolders = QuickAllBox.IsChecked == true;
+        if (DefaultTargetBox.SelectedItem is ComboBoxItem { Tag: string defTarget }) _settings.DefaultTarget = defTarget;
         _settings.Theme = ThemeBox.SelectedItem is ComboBoxItem { Tag: string theme } ? theme : "dark";
         _settings.BinCapacity = capacity;
 
@@ -314,12 +314,26 @@ public partial class SettingsWindow : Window
 
         _saved = true;
         _settings.Save();
+        ((App)Application.Current).Panel.ApplyDefaultTarget();
         ShellIntegration.Sync(_settings);
         _controller.UpdateWidgetVisibility();
         Close();
     }
 
     private void OnCancel(object sender, RoutedEventArgs e) => Close();
+
+    private void FillDefaultTargets()
+    {
+        DefaultTargetBox.Items.Clear();
+        var current = Targets.Normalize(_settings.DefaultTarget, _settings);
+        foreach (var (id, label) in Targets.Options(_settings, withSingleFolders: true))
+        {
+            if (id is null) DefaultTargetBox.Items.Add(new Separator());
+            else DefaultTargetBox.Items.Add(new ComboBoxItem { Content = label, Tag = id });
+        }
+        DefaultTargetBox.SelectedItem = DefaultTargetBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == current)
+                                        ?? DefaultTargetBox.Items.OfType<ComboBoxItem>().First();
+    }
 
     private void OnResegregate(object sender, RoutedEventArgs e)
     {
@@ -354,6 +368,7 @@ public partial class SettingsWindow : Window
 
     public void RenderFolders()
     {
+        FillDefaultTargets(); // lista opcji zależy od folderów
         FoldersPanel.Children.Clear();
         if (_settings.Folders.Count == 0)
         {
@@ -377,7 +392,7 @@ public partial class SettingsWindow : Window
             row.Children.Add(new TextBlock
             {
                 Text = $"{job.Path}\nHarmonogram: {job.ScheduleText} · pomija pliki młodsze niż {FolderPreviewWindow.AgeText(job.MinAgeHours)}"
-                       + (job.DetectDuplicates ? " · duplikaty" : "") + (job.MoveLooseFolders ? " · podfoldery → Foldery" : ""),
+                       + (job.DuplicatesToFolder ? " · kopie → Duplikaty" : " · kopie obok oryginałów") + (job.MoveLooseFolders ? " · podfoldery → Foldery" : ""),
                 FontSize = 11,
                 Foreground = (System.Windows.Media.Brush)FindResource("Muted"),
                 TextWrapping = TextWrapping.Wrap,

@@ -92,6 +92,7 @@ public sealed class Collector
                 folder = Path.Combine(BaseFolder, item.Category);
             }
             Directory.CreateDirectory(folder);
+            FolderIcon.Ensure(BaseFolder);
             var dest = UniquePath(Path.Combine(folder, Path.GetFileName(item.Path)));
 
             if (Directory.Exists(item.Path))
@@ -130,7 +131,7 @@ public sealed class Collector
         if (_log.Moves.Count == 0)
         {
             TryDeleteEmpty(SessionFolder);
-            TryDeleteEmpty(BaseFolder);
+            FolderIcon.DeleteIfEmpty(BaseFolder);
         }
         else
         {
@@ -209,7 +210,7 @@ public sealed class Collector
             // tylko „Zebrane z pulpitu” – nigdy sam sprzątany folder (np. Pobrane)
             TryDeleteEmpty(log.SessionFolder);
             var baseFolder = Path.GetDirectoryName(log.SessionFolder);
-            if (baseFolder is not null) TryDeleteEmpty(baseFolder);
+            if (baseFolder is not null) FolderIcon.DeleteIfEmpty(baseFolder);
         }
         if (failed == 0)
         {

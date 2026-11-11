@@ -7,6 +7,12 @@ namespace DeskVac.Core.Segregation;
 /// <summary>Jedna zmiana segregacji: plik → inny podfolder (np. PDF → PDF\Faktury) z uzasadnieniem.</summary>
 public sealed record SegregationMove(string Source, string Destination, string Root, string From, string To, string Reason);
 
+/// <summary>
+/// Folder główny segregacji. DissolveDuplicates – rozłóż stary folder „Duplikaty” do folderów kategorii;
+/// AbandonedPartials – porzucone pobierania z głównego folderu do „Niedokończone pobrania”.
+/// </summary>
+public sealed record SegregationRoot(string Path, bool DissolveDuplicates, bool AbandonedPartials);
+
 public sealed class SegregationPlan
 {
     public List<SegregationMove> Moves { get; } = new();
@@ -44,44 +50,72 @@ public sealed class Segregator : IDisposable
 
     private readonly AppSettings _settings;
     private readonly SegregationCache _cache = SegregationCache.Load();
+    private readonly bool _inProcess;
     private Process? _worker;
 
     public event Action<int, int, string>? Progress;
 
-    public Segregator(AppSettings settings) => _settings = settings;
+    /// <param name="inProcess">true = czytaj pliki w tym procesie (testy); domyślnie osobny proces roboczy.</param>
+    public Segregator(AppSettings settings, bool inProcess = false)
+    {
+        _settings = settings;
+        _inProcess = inProcess;
+    }
 
     /// <summary>Foldery główne: „Zebrane z pulpitu” i każdy włączony sprzątany folder.</summary>
-    public static List<string> Roots(AppSettings s)
+    public static List<SegregationRoot> Roots(AppSettings s)
     {
-        var roots = new List<string>();
+        var roots = new List<SegregationRoot>();
         var desktopBase = new Collector(s).BaseFolder;
-        if (Directory.Exists(desktopBase)) roots.Add(desktopBase);
+        if (Directory.Exists(desktopBase)) roots.Add(new SegregationRoot(desktopBase, true, false));
         foreach (var f in s.Folders.Where(f => f.Enabled && Directory.Exists(f.Path) && KnownFolders.WhyForbidden(f.Path) is null))
-            roots.Add(Path.TrimEndingDirectorySeparator(f.Path));
+            roots.Add(new SegregationRoot(Path.TrimEndingDirectorySeparator(f.Path), !f.DuplicatesToFolder, true));
         return roots;
     }
 
     /// <summary>Przegląda pliki i układa plan zmian. force = czytaj ponownie także pliki znane z poprzednich segregacji.</summary>
-    public SegregationPlan Plan(IEnumerable<string> roots, bool force, CancellationToken ct)
+    public SegregationPlan Plan(IEnumerable<SegregationRoot> roots, bool force, CancellationToken ct)
     {
         var plan = new SegregationPlan();
-        var work = new List<(string Root, string Type, string? Topic, FileInfo File)>();
+        var work = new List<(string Root, string Type, string? Topic, FileInfo File, bool FromDuplicates)>();
+        var now = DateTime.Now;
 
-        foreach (var root in roots)
+        foreach (var r in roots)
         {
+            var root = r.Path;
+
+            // porzucone pobierania leżące luzem w folderze głównym → „Niedokończone pobrania”
+            if (r.AbandonedPartials)
+            {
+                foreach (var f in SafeFiles(root))
+                {
+                    if (!FolderCleaner.IsAbandonedPartial(f, now) || _settings.IsExcluded(f.Name, f.FullName)) continue;
+                    if ((f.Attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0) continue;
+                    AddMove(plan, root, f, Path.Combine(root, FolderCleaner.AbandonedFolder), "porzucone pobieranie (nieruszane od ponad 7 dni)");
+                }
+            }
+
             foreach (var typeDir in SafeDirs(root))
             {
                 var type = Path.GetFileName(typeDir);
+
+                // stary folder „Duplikaty” – rozkładamy do folderów kategorii, obok oryginałów
+                if (r.DissolveDuplicates && string.Equals(type, FolderCleaner.DuplicatesFolder, StringComparison.OrdinalIgnoreCase))
+                {
+                    foreach (var f in SafeFiles(typeDir)) work.Add((root, Categorizer.CategoryOf(f.FullName), null, f, true));
+                    continue;
+                }
+
                 if (!Categorizer.AllCategoryFolders().Contains(type) || Untouched.Contains(type)) continue;
 
-                foreach (var f in SafeFiles(typeDir)) work.Add((root, type, null, f));
+                foreach (var f in SafeFiles(typeDir)) work.Add((root, type, null, f, false));
                 foreach (var topicDir in SafeDirs(typeDir))
-                    foreach (var f in SafeFiles(topicDir)) work.Add((root, type, Path.GetFileName(topicDir), f));
+                    foreach (var f in SafeFiles(topicDir)) work.Add((root, type, Path.GetFileName(topicDir), f, false));
             }
         }
 
         int done = 0;
-        foreach (var (root, type, topic, file) in work)
+        foreach (var (root, type, topic, file, fromDuplicates) in work)
         {
             ct.ThrowIfCancellationRequested();
             Progress?.Invoke(done++, work.Count, file.Name);
@@ -91,10 +125,18 @@ public sealed class Segregator : IDisposable
 
             // 1) poprawka typu (np. .apk wcześniej w „Inne\Skany” → Instalatory)
             var properType = Categorizer.CategoryOf(file.FullName);
-            if (!string.Equals(properType, type, StringComparison.OrdinalIgnoreCase) && properType != "Inne")
+            if (!fromDuplicates && !string.Equals(properType, type, StringComparison.OrdinalIgnoreCase) && properType != "Inne")
             {
                 var target = Path.Combine(root, Categorizer.RelativeFolder(file.FullName, _settings.SortByTopic));
                 AddMove(plan, root, file, target, $"typ pliku: {properType}");
+                continue;
+            }
+
+            // 1b) z „Duplikaty”: bez czytalnej treści → folder wg typu i nazwy
+            if (fromDuplicates && (!ContentTypes.Contains(type) || !TextExtractor.Supported.Contains(file.Extension) || ImageExtensions.Contains(file.Extension)))
+            {
+                AddMove(plan, root, file, Path.Combine(root, Categorizer.RelativeFolder(file.FullName, _settings.SortByTopic)),
+                    "kopia – obok oryginałów (wg typu i nazwy)");
                 continue;
             }
 
@@ -129,6 +171,15 @@ public sealed class Segregator : IDisposable
                 _cache.Set(key, newTopic, reason);
             }
 
+            if (fromDuplicates)
+            {
+                // kopia zawsze wychodzi z „Duplikaty”: do tematu z treści, a gdy niepewny – wg typu i nazwy
+                var dest = newTopic is null
+                    ? Path.Combine(root, Categorizer.RelativeFolder(file.FullName, _settings.SortByTopic))
+                    : Path.Combine(root, type, newTopic);
+                AddMove(plan, root, file, dest, "kopia – obok oryginałów" + (newTopic is null ? "" : $" ({reason})"));
+                continue;
+            }
             if (newTopic is null)
             {
                 plan.Uncertain++;
@@ -147,8 +198,12 @@ public sealed class Segregator : IDisposable
     {
         var dest = Path.Combine(targetDir, file.Name);
         if (string.Equals(Path.GetDirectoryName(file.FullName), targetDir, StringComparison.OrdinalIgnoreCase)) return;
-        plan.Moves.Add(new SegregationMove(file.FullName, dest, root,
-            Path.GetRelativePath(root, file.DirectoryName!), Path.GetRelativePath(root, targetDir), reason));
+        static string Rel(string root, string dir)
+        {
+            var r = Path.GetRelativePath(root, dir);
+            return r == "." ? "(folder główny)" : r;
+        }
+        plan.Moves.Add(new SegregationMove(file.FullName, dest, root, Rel(root, file.DirectoryName!), Rel(root, targetDir), reason));
     }
 
     /// <summary>Wykonuje plan. Dziennik typu „segregation” – „Cofnij” przywraca poprzednie miejsca.</summary>
@@ -194,6 +249,7 @@ public sealed class Segregator : IDisposable
 
     private ExtractResult ExtractViaWorker(string path, bool ocr)
     {
+        if (_inProcess) return TextExtractor.Extract(path, ocr);
         for (int attempt = 0; attempt < 2; attempt++)
         {
             try

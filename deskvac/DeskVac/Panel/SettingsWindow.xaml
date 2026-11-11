@@ -71,7 +71,11 @@
             </StackPanel>
             <TextBlock Style="{StaticResource Hint}"
                        Text="Gdy pojemnik się zapełni, robot wraca do stacji, opróżnia go, szybko się ładuje i sprząta pulpit dalej."/>
-            <CheckBox x:Name="QuickAllBox" Content="Potrójne kliknięcie w robota sprząta też foldery „razem z pulpitem” (domyślnie tylko pulpit)"/>
+            <StackPanel Orientation="Horizontal" Margin="0,4,0,4">
+              <TextBlock Text="Domyślnie sprzątaj:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <ComboBox x:Name="DefaultTargetBox" MinWidth="260"/>
+            </StackPanel>
+            <TextBlock Style="{StaticResource Hint}" Text="Ta opcja jest wybrana w panelu po starcie, przy potrójnym kliknięciu w robota i w menu zasobnika."/>
           </StackPanel>
         </Border>
 

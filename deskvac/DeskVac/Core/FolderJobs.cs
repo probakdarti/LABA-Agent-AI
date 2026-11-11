@@ -47,6 +47,12 @@ public sealed class FolderJob
     /// <summary>Identyczne pliki (ta sama zawartość) odkładaj do „Duplikaty”.</summary>
     public bool DetectDuplicates { get; set; } = true;
 
+    /// <summary>
+    /// Identyczne kopie do osobnego folderu „Duplikaty” (stary sposób). Domyślnie NIE – kopia trafia obok oryginału
+    /// do tego samego folderu kategorii, z własną nazwą.
+    /// </summary>
+    public bool DuplicatesToFolder { get; set; }
+
     /// <summary>Czy użytkownik obejrzał i zatwierdził podgląd (wymagane przed pierwszym sprzątaniem).</summary>
     public bool PreviewConfirmed { get; set; }
 

@@ -13,7 +13,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>DeskVac</AssemblyName>
     <RootNamespace>DeskVac</RootNamespace>
-    <Version>2.0.0</Version>
+    <Version>2.1.0</Version>
     <ApplicationIcon>Assets\DeskVac.ico</ApplicationIcon>
     <Product>DeskVac</Product>
     <AssemblyTitle>DeskVac – robot-odkurzacz pulpitu</AssemblyTitle>
@@ -43,6 +43,8 @@
   <ItemGroup>
     <!-- dźwięki wkompilowane w .exe; generuje je deskvac/tools/make_sounds.py -->
     <EmbeddedResource Include="Assets\Sounds\*.wav" />
+    <!-- ikona folderu „Zebrane z pulpitu” (stacja dokująca z pojemnikiem) -->
+    <EmbeddedResource Include="Assets\ZebraneFolder.ico" LogicalName="DeskVac.ZebraneFolder.ico" />
   </ItemGroup>
 
 </Project>

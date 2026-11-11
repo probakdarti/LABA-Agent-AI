@@ -41,3 +41,5 @@ __pycache__/
 # DeskVac (.NET)
 deskvac/**/bin/
 deskvac/**/obj/
+
+deskvac/**/TestResults/

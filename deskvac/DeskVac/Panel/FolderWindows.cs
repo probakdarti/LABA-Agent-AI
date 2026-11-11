@@ -116,7 +116,9 @@ public sealed class FolderPreviewWindow : Window
         if (plan.SkippedSystem > 0) kept.Add($"foldery systemowe Windows: {plan.SkippedSystem}");
         if (kept.Count > 0) head.Children.Add(Ui.Hint("Zostają na miejscu: " + string.Join(", ", kept) + "."));
         if (plan.Duplicates > 0)
-            head.Children.Add(Ui.Hint($"Duplikaty (identyczna zawartość jak inny plik) trafią do „Duplikaty”: {plan.Duplicates}. Nic nie jest usuwane."));
+            head.Children.Add(Ui.Hint(plan.Job.DuplicatesToFolder
+                ? $"Identyczne kopie (ta sama zawartość) trafią do „Duplikaty”: {plan.Duplicates}. Nic nie jest usuwane."
+                : $"Identyczne kopie (ta sama zawartość): {plan.Duplicates} – trafią obok oryginałów, z własną nazwą. Nic nie jest usuwane."));
         DockPanel.SetDock(head, Dock.Top);
         root.Children.Add(head);
 
@@ -139,11 +141,12 @@ public sealed class FolderPreviewWindow : Window
         grid.Columns.Add(new GridViewColumn { Header = "Element", Width = 380, DisplayMemberBinding = new Binding("Name") });
         grid.Columns.Add(new GridViewColumn { Header = "Trafi do", Width = 360, DisplayMemberBinding = new Binding("Target") });
         list.View = grid;
+        // przeniesienia, a pod nimi pominięte z powodem – od razu widać, dlaczego coś zostało
         list.ItemsSource = plan.Moves.Select(m => new
         {
             Name = (m.IsFolder ? "📁 " : "") + Path.GetFileName(m.Source),
-            Target = plan.Job.DisplayName + " \\ " + m.Category.Replace("\\", " \\ "),
-        }).ToList();
+            Target = plan.Job.DisplayName + " \\ " + m.Category.Replace("\\", " \\ ") + (m.IsDuplicate ? "  (kopia)" : ""),
+        }).Concat(plan.Skipped.Select(s => new { Name = "⏸ " + s.Name, Target = "zostaje: " + s.Reason })).ToList();
         root.Children.Add(list);
 
         Content = root;
@@ -191,7 +194,7 @@ public sealed class FolderJobWindow : Window
         rules.Children.Add(Ui.Row(Ui.Label("Nie ruszaj plików młodszych niż"), _age, _ageUnit));
         rules.Children.Add(Ui.Hint("Świeżo pobrane pliki zostają na miejscu, aż „odleżą”. 0 = sprzątaj wszystko. Niedokończone pobierania (.crdownload, .part…) i pliki otwarte w programach robot zawsze pomija."));
         _loose = new CheckBox { Content = "Luźne podfoldery (np. rozpakowane archiwa) przenoś do „Foldery”", IsChecked = job.MoveLooseFolders };
-        _dups = new CheckBox { Content = "Identyczne kopie plików odkładaj do „Duplikaty” (nic nie jest usuwane)", IsChecked = job.DetectDuplicates };
+        _dups = new CheckBox { Content = "Identyczne kopie odkładaj do osobnego folderu „Duplikaty” (domyślnie: obok oryginału)", IsChecked = job.DuplicatesToFolder };
         rules.Children.Add(_loose);
         rules.Children.Add(_dups);
         rules.Children.Add(Ui.Hint("Twoje istniejące podfoldery kategorii (PDF, Word, Instalatory…) i chronione elementy zostają nietknięte. Pliki trafiają do podfolderów w tym samym folderze, np. " + job.DisplayName + "\\PDF\\Faktury."));
@@ -264,7 +267,7 @@ public sealed class FolderJobWindow : Window
         _job.Enabled = _enabled.IsChecked == true;
         _job.MinAgeHours = _ageUnit.SelectedIndex == 1 ? age * 24 : age;
         _job.MoveLooseFolders = _loose.IsChecked == true;
-        _job.DetectDuplicates = _dups.IsChecked == true;
+        _job.DuplicatesToFolder = _dups.IsChecked == true;
         _job.Mode = _withDesktop?.IsChecked == true ? FolderScheduleMode.WithDesktop : FolderScheduleMode.Own;
         _job.Schedule.Kind = (FolderScheduleKind)Math.Max(0, _kind.SelectedIndex);
         _job.Schedule.Time = $"{(int)ts.TotalHours:00}:{ts.Minutes:00}";

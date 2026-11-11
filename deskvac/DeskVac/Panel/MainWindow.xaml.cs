@@ -17,7 +17,7 @@ public partial class MainWindow : Window
     private readonly CleaningController _controller;
     private readonly DispatcherTimer _ui = new() { Interval = TimeSpan.FromMilliseconds(33) };
     private bool _loading = true;
-    private string _target = "desktop";
+    private string _target = Targets.Desktop;
 
     /// <summary>Prawdziwe zamknięcie (z menu „Zakończ”), a nie schowanie do zasobnika.</summary>
     public bool AllowClose { get; set; }
@@ -28,6 +28,7 @@ public partial class MainWindow : Window
         _settings = settings;
         _controller = controller;
         _controller.Finished += OnFinished;
+        _target = Targets.Normalize(settings.DefaultTarget, settings);
         Map.Controller = controller;
 
         LoadQuickSettings();
@@ -176,15 +177,22 @@ public partial class MainWindow : Window
         bool was = _loading;
         _loading = true;
         TargetBox.Items.Clear();
-        var folders = _settings.Folders.Where(f => f.Enabled).ToList();
-        TargetBox.Items.Add(new ComboBoxItem { Content = folders.Count == 0 ? "Pulpit" : "Tylko pulpit", Tag = "desktop" });
-        if (folders.Count > 0)
-            TargetBox.Items.Add(new ComboBoxItem { Content = "Wszystko: pulpit + " + string.Join(", ", folders.Select(f => f.DisplayName)), Tag = "all" });
-        foreach (var f in folders)
-            TargetBox.Items.Add(new ComboBoxItem { Content = $"Tylko folder „{f.DisplayName}”", Tag = f.Id });
-        TargetBox.SelectedItem = TargetBox.Items.Cast<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _target)
-                                 ?? TargetBox.Items[0];
+        _target = Targets.Normalize(_target, _settings);
+        foreach (var (id, label) in Targets.Options(_settings, withSingleFolders: true))
+        {
+            if (id is null) TargetBox.Items.Add(new Separator());
+            else TargetBox.Items.Add(new ComboBoxItem { Content = label, Tag = id });
+        }
+        TargetBox.SelectedItem = TargetBox.Items.OfType<ComboBoxItem>().FirstOrDefault(i => (string)i.Tag == _target)
+                                 ?? TargetBox.Items.OfType<ComboBoxItem>().First();
         _loading = was;
+    }
+
+    /// <summary>Po zmianie domyślnej opcji w ustawieniach panel od razu ją pokazuje.</summary>
+    public void ApplyDefaultTarget()
+    {
+        _target = Targets.Normalize(_settings.DefaultTarget, _settings);
+        RefreshTargets();
     }
 
     private void OnPause(object sender, RoutedEventArgs e) => _controller.TogglePause();

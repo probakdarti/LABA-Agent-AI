@@ -14,6 +14,9 @@ public sealed class FolderPlan
     public int SkippedProtected { get; set; }
     public int SkippedFolders { get; set; }
     public int SkippedSystem { get; set; }
+
+    /// <summary>Pominięte elementy z powodem – pokazywane w podglądzie („zostaje: świeży plik” itp.).</summary>
+    public List<(string Name, string Reason)> Skipped { get; } = new();
     public string? Error { get; set; }
 
     public int Duplicates => Moves.Count(m => m.IsDuplicate);
@@ -30,7 +33,13 @@ public static class FolderCleaner
     public const string AbandonedFolder = "Niedokończone pobrania";
 
     /// <summary>Niedokończone pobieranie nieruszane od tylu dni uznajemy za porzucone.</summary>
-    private static readonly TimeSpan AbandonedAfter = TimeSpan.FromDays(7);
+    public static readonly TimeSpan AbandonedAfter = TimeSpan.FromDays(7);
+
+    /// <summary>Niedokończone pobieranie (.part, .crdownload…) nieruszane od 7 dni = porzucone.</summary>
+    public static bool IsPartial(FileSystemInfo f) =>
+        f is FileInfo && (PartialExtensions.Contains(f.Extension) || f.Name.StartsWith("Unconfirmed ", StringComparison.OrdinalIgnoreCase));
+
+    public static bool IsAbandonedPartial(FileSystemInfo f, DateTime now) => IsPartial(f) && now - f.LastWriteTime >= AbandonedAfter;
 
     /// <summary>Niedokończone pobierania przeglądarek i menedżerów pobierania.</summary>
     private static readonly HashSet<string> PartialExtensions = new(StringComparer.OrdinalIgnoreCase)
@@ -75,11 +84,13 @@ public static class FolderCleaner
                 if (system.IsProtected(info.FullName))
                 {
                     plan.SkippedSystem++;
+                    plan.Skipped.Add((info.Name, "folder systemowy Windows"));
                     continue;
                 }
                 if (!job.MoveLooseFolders)
                 {
                     plan.SkippedFolders++;
+                    plan.Skipped.Add((info.Name, "podfolder (przenoszenie podfolderów wyłączone)"));
                     continue;
                 }
             }
@@ -89,6 +100,7 @@ public static class FolderCleaner
                 if (now - info.LastWriteTime < AbandonedAfter)
                 {
                     plan.SkippedPartial++;
+                    plan.Skipped.Add((info.Name, $"pobieranie w toku (zmieniony {info.LastWriteTime:dd.MM HH:mm})"));
                     continue;
                 }
                 abandoned.Add(info.FullName);
@@ -97,6 +109,7 @@ public static class FolderCleaner
             if (settings.IsExcluded(info.Name, info.FullName))
             {
                 plan.SkippedProtected++;
+                plan.Skipped.Add((info.Name, "chroniony („Nie odkurzaj!”)"));
                 continue;
             }
 
@@ -105,6 +118,7 @@ public static class FolderCleaner
             if (minAge > TimeSpan.Zero && now - touched < minAge)
             {
                 plan.SkippedRecent++;
+                plan.Skipped.Add((info.Name, $"świeży – z {touched:dd.MM HH:mm}, czeka {Math.Ceiling((minAge - (now - touched)).TotalHours)} godz."));
                 continue;
             }
             candidates.Add(info);
@@ -130,8 +144,9 @@ public static class FolderCleaner
         foreach (var info in candidates.OrderBy(i => i.Name, StringComparer.CurrentCultureIgnoreCase))
         {
             bool dup = duplicates.Contains(info.FullName);
+            // kopia idzie obok oryginału (ten sam folder kategorii) – chyba że ktoś wybrał osobny folder „Duplikaty”
             var category = abandoned.Contains(info.FullName) ? AbandonedFolder
-                : dup ? DuplicatesFolder
+                : dup && job.DuplicatesToFolder ? DuplicatesFolder
                 : Categorizer.RelativeFolder(info.FullName, settings.SortByTopic);
             var dest = UniqueTarget(Path.Combine(root, category, info.Name), taken);
             taken.Add(dest);
