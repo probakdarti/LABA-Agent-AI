@@ -235,8 +235,8 @@ heurystyki (np. Norton 360). Rozwiązania:
 2. **Podpis cyfrowy** – od wersji 2.1 **obowiązkowy**. Workflow podpisuje `DeskVac.exe`, `DeskVac.dll`,
    `DeskVac-Setup.exe` i deinstalator (znacznik czasu DigiCert), a na końcu sprawdza podpisy. Bez sekretów
    `SIGNING_PFX_BASE64` (plik .pfx zakodowany Base64) i `SIGNING_PFX_PASSWORD` build kończy się błędem.
-   Certyfikat z sekretu musi być tym samym, co publiczny `deskvac/signing/VERME.cer` (porównanie odcisku) –
-   przy zmianie certyfikatu podmień oba. Obecny certyfikat VERME jest wystawiony samodzielnie: podpis
+   Certyfikat z sekretu musi mieć odcisk zapisany w workflow (`SIGNING_THUMBPRINT`) – przy zmianie
+   certyfikatu podmień sekrety i tę jedną linię. Obecny certyfikat VERME jest wystawiony samodzielnie: podpis
    potwierdza autora i nienaruszoność pliku, ale SmartScreen i antywirusy na obcych komputerach traktują go
    jak niepodpisany, dopóki nie zastąpi go certyfikat od zaufanego wystawcy (Certum, Microsoft Artifact Signing).
 3. **Wyjątek w antywirusie** na własnym komputerze (np. Norton → Ustawienia → Antywirus → Wykluczenia).

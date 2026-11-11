@@ -14,8 +14,8 @@ permissions:
 env:
   DESKVAC_VERSION: "2.1.${{ github.run_number }}"
   # Podpis cyfrowy jest OBOWIĄZKOWY: bez sekretów SIGNING_PFX_BASE64 i SIGNING_PFX_PASSWORD build się nie uda.
-  # Certyfikat w sekrecie musi być tym samym, co publiczny deskvac/signing/VERME.cer (porównanie odcisku SHA-1).
-  CERT_FILE: deskvac/signing/VERME.cer
+  # Certyfikat w sekrecie musi mieć ten odcisk (SHA-1) – przy zmianie certyfikatu zmień tylko tę linię.
+  SIGNING_THUMBPRINT: 2E855EF90C7FF623F52F938A572DD745B4C52945
 
 jobs:
   build:
@@ -55,9 +55,9 @@ jobs:
           [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:PFX_B64))
           $cert = New-Object Security.Cryptography.X509Certificates.X509Certificate2($pfx, $env:PFX_PASS)
           if (-not $cert.HasPrivateKey) { Write-Error "Plik .pfx nie zawiera klucza prywatnego."; exit 1 }
-          $expected = (New-Object Security.Cryptography.X509Certificates.X509Certificate2((Resolve-Path $env:CERT_FILE).Path)).Thumbprint
+          $expected = $env:SIGNING_THUMBPRINT
           if ($cert.Thumbprint -ne $expected) {
-            Write-Error "Certyfikat z sekretu ($($cert.Thumbprint)) nie jest certyfikatem z $env:CERT_FILE ($expected)."
+            Write-Error "Certyfikat z sekretu ($($cert.Thumbprint)) nie jest certyfikatem VERME ($expected)."
             exit 1
           }
           if ($cert.NotAfter -lt (Get-Date)) { Write-Error "Certyfikat wygasł $($cert.NotAfter)."; exit 1 }
@@ -93,7 +93,7 @@ jobs:
       - name: Sprawdzenie podpisów
         shell: pwsh
         run: |
-          $expected = (New-Object Security.Cryptography.X509Certificates.X509Certificate2((Resolve-Path $env:CERT_FILE).Path)).Thumbprint
+          $expected = $env:SIGNING_THUMBPRINT
           $bad = 0
           foreach ($f in "out\app\DeskVac.exe", "out\app\DeskVac.dll", "out\DeskVac-Setup.exe") {
             $s = Get-AuthenticodeSignature $f
