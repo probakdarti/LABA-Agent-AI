@@ -38,6 +38,11 @@ CloseApplications=force
 RestartApplications=no
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
+#ifdef Sign
+; podpis instalatora i deinstalatora – polecenie podaje workflow: ISCC /DSign=1 "/Sdeskvacsign=signtool sign … $f"
+SignTool=deskvacsign
+SignedUninstaller=yes
+#endif
 
 [Languages]
 Name: "pl"; MessagesFile: "compiler:Languages\Polish.isl"

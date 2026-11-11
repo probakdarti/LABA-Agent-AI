@@ -14,7 +14,7 @@ pliki oraz foldery do folderu **„Zebrane z pulpitu”**. Potem wraca do bazy i
    i pobierz artefakt **DeskVac-Setup** (zip z `DeskVac-Setup.exe`).
 2. Uruchom `DeskVac-Setup.exe`. Instalacja nie wymaga administratora; program trafia do
    `%LOCALAPPDATA%\Programs\DeskVac`, a skrót do menu Start. Pole „Uruchamiaj razem z Windows” jest do wyboru.
-3. Instalator nie jest podpisany cyfrowo, więc SmartScreen może zapytać: *Więcej informacji → Uruchom mimo to*.
+3. Instalator jest podpisany certyfikatem VERME (samodzielnie wystawionym), więc SmartScreen nadal może zapytać: *Więcej informacji → Uruchom mimo to*.
 4. Odinstalowanie: *Ustawienia → Aplikacje → DeskVac*. Usuwa też autostart i pozycję z menu kontekstowego.
    Ustawienia i historia sprzątań zostają w `%LOCALAPPDATA%\DeskVac`.
 
@@ -232,10 +232,13 @@ heurystyki (np. Norton 360). Rozwiązania:
 1. **Zgłoszenie fałszywego alarmu** – bezpłatne, zwykle 1–3 dni robocze:
    Norton: <https://submit.norton.com/> („False positive”), Microsoft Defender:
    <https://www.microsoft.com/wdsi/filesubmission>. Po każdej nowej wersji najlepiej zgłosić ponownie.
-2. **Podpis cyfrowy (certyfikat Code Signing)** – rozwiązanie docelowe. Workflow podpisuje `DeskVac.exe`
-   i `DeskVac-Setup.exe` automatycznie, gdy w repozytorium są sekrety `SIGNING_PFX_BASE64` (plik .pfx
-   zakodowany Base64) i `SIGNING_PFX_PASSWORD`. Uwaga: wielu wystawców wydaje dziś certyfikaty tylko na
-   tokenie sprzętowym/w chmurze (bez pliku .pfx) – wtedy krok podpisu trzeba dostosować do ich narzędzia.
+2. **Podpis cyfrowy** – od wersji 2.1 **obowiązkowy**. Workflow podpisuje `DeskVac.exe`, `DeskVac.dll`,
+   `DeskVac-Setup.exe` i deinstalator (znacznik czasu DigiCert), a na końcu sprawdza podpisy. Bez sekretów
+   `SIGNING_PFX_BASE64` (plik .pfx zakodowany Base64) i `SIGNING_PFX_PASSWORD` build kończy się błędem.
+   Certyfikat z sekretu musi być tym samym, co publiczny `deskvac/signing/VERME.cer` (porównanie odcisku) –
+   przy zmianie certyfikatu podmień oba. Obecny certyfikat VERME jest wystawiony samodzielnie: podpis
+   potwierdza autora i nienaruszoność pliku, ale SmartScreen i antywirusy na obcych komputerach traktują go
+   jak niepodpisany, dopóki nie zastąpi go certyfikat od zaufanego wystawcy (Certum, Microsoft Artifact Signing).
 3. **Wyjątek w antywirusie** na własnym komputerze (np. Norton → Ustawienia → Antywirus → Wykluczenia).
 
 ## Znane ograniczenia
